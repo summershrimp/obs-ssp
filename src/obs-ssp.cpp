@@ -53,5 +53,5 @@ const char* obs_module_name()
 
 const char* obs_module_description()
 {
-	return "ZCAM SSP input integration for OBS Studio";
+	return "Z CAM SSP input integration for OBS Studio";
 }

@@ -16,7 +16,7 @@ find_package(LibObs)
 find_package(LibSsp)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
-
+find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(ARCH 64)
@@ -27,6 +27,7 @@ endif()
 set(obs-ssp_SOURCES
 		src/obs-ssp.cpp
 		src/obs-ssp-source.cpp
+		src/ffmpeg-decode.c
 	)
 
 set(obs-ssp_HEADERS
@@ -40,9 +41,14 @@ include_directories(${LIBOBS_INCLUDE_DIR}
 	${LIBSSP_INCLUDE_DIR}
 	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
 	${Qt5Core_INCLUDES}
-	${Qt5Widgets_INCLUDES})
+	${Qt5Widgets_INCLUDES}
+	${FFMPEG_INCLUDE_DIRS})
 
 target_link_libraries(obs-ssp
+	${LIBSSP_LIB}
+	"${OBS_FRONTEND_LIB}"
+	${LIBOBS_LIB}
+	${FFMPEG_LIBRARIES}
 	Qt5::Core
 	Qt5::Widgets)
 
@@ -67,10 +73,7 @@ if(WIN32)
 
 	find_package(w32-pthreads REQUIRED)
 
-	target_link_libraries(obs-ssp ${LIBSSP_LIB}
-		"${OBS_FRONTEND_LIB}"
-		${LIBOBS_LIB}
-		w32-pthreads)
+	target_link_libraries(obs-ssp w32-pthreads)
 
 	set(RELEASE_DIR "${PROJECT_SOURCE_DIR}/release")
 	add_custom_command(TARGET obs-ssp POST_BUILD

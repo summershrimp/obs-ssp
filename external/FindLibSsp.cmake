@@ -21,15 +21,12 @@ find_path(LIBSSP_INCLUDE_DIR
         /usr/include /usr/local/include /opt/local/include /sw/include
         )
 
-set(LIBSSP_LIB_NAME "libsspd")
-
 if(MSVC)
     SET(LIBSSP_LIB_SUFFIX "win_x64_vs2017")
-    if(CMAKE_BUILD_TYPE EQUAL "Debug")
-        set(LIBSSP_LIB_NAME "libsspd")
-    endif()
+    set(LIBSSP_LIB_NAME "libssp")
 else()
     SET(LIBSSP_LIB_SUFFIX "linux_x64")
+    set(LIBSSP_LIB_NAME "ssp")
 endif()
 
 find_library(LIBSSP_LIB
