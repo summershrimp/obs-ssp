@@ -36,9 +36,8 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-ssp.h"
 extern "C" {
-#include <obs-internal.h>
 #include "ffmpeg-decode.h"
-};
+}
 
 #define PROP_SOURCE_IP "ssp_source_ip"
 #define PROP_HW_ACCEL "ssp_recv_hw_accel"
@@ -79,12 +78,10 @@ struct ssp_source
     AVCodecID aformat;
     obs_source_audio audio;
 
-    std::mutex init_ok;
 };
 
 static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_source *s)
 {
-    uint64_t f_time = os_gettime_ns();
     if (!ffmpeg_decode_valid(&s->vdecoder)) {
         assert (s->vformat == AV_CODEC_ID_H264 || s->vformat == AV_CODEC_ID_HEVC);
         if (ffmpeg_decode_init(&s->vdecoder, s->vformat, false) < 0) {
@@ -100,7 +97,6 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_source *s)
         blog(LOG_WARNING, "Error decoding video");
         return;
     }
-    blog(LOG_INFO, "video pts:%llu decode ts: %llu", video->pts, ts);
 
     if (got_output) {
         if(s->sync_mode == PROP_SYNC_INTERNAL){
@@ -110,14 +106,12 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_source *s)
         }
 //        if (flip)
 //            frame.flip = !frame.flip;
-        blog(LOG_INFO, "last frame timestamp:%llu", s->source->last_frame_ts);
         obs_source_output_video2(s->source, &s->frame);
     }
 }
 
 static void ssp_on_audio_data(struct imf::SspAudioData *audio, ssp_source *s)
 {
-    blog(LOG_INFO, "audio data: pts[%llu] ts[%llu]", audio->pts, audio->ntp_timestamp);
     if (!ffmpeg_decode_valid(&s->adecoder)) {
         if (ffmpeg_decode_init(&s->adecoder, s->aformat, false) < 0) {
             blog(LOG_WARNING, "Could not initialize audio decoder");
@@ -143,7 +137,6 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio, ssp_source *s)
             } else {
                 s->audio.timestamp = (uint64_t) audio->pts * 1000;
             }
-            blog(LOG_INFO, "last frame timestamp:%llu", s->source->last_frame_ts);
             obs_source_output_audio(s->source, &s->audio);
         } else {
             break;
@@ -286,11 +279,9 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
 	s->sync_mode = (int)obs_data_get_int(settings, PROP_SYNC);
     s->source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
-
 	const bool is_unbuffered =
 		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
-
     blog(LOG_INFO, "Starting ssp client...");
 	s->clientLooper = new imf::ThreadLoop(std::bind(ssp_setup_client, _1, (ssp_source*)data));
 	s->clientLooper->start();
