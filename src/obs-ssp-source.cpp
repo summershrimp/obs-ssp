@@ -167,14 +167,33 @@ static void ssp_on_meta_data(struct imf::SspVideoMeta *v,
 static void ssp_on_disconnected(ssp_source *s) {
     blog(LOG_INFO, "ssp device disconnected.");
     s->running = false;
-    s->client->stop();
-    delete s->client;
-    s->client = nullptr;
-
 }
 
 static void ssp_on_exception(int code, const char* description, ssp_source *s) {
     blog(LOG_ERROR, "ssp exception %d: %s\n", code, description);
+}
+
+static void ssp_stop(ssp_source *s){
+    if(!s) {
+        return ;
+    }
+    blog(LOG_INFO, "Stopping ssp client...");
+    if(s->client){
+        s->client->stop();
+    }
+    if(s->clientLooper){
+        s->clientLooper->stop();
+    }
+    blog(LOG_INFO, "SSP client stopped.");
+    if(s->client){
+        //delete s->client;
+        s->client = nullptr;
+    }
+    if(s->clientLooper){
+        //delete s->clientLooper;
+        s->clientLooper = nullptr;
+    }
+    blog(LOG_INFO, "SSP released.");
 }
 
 static void ssp_setup_client(imf::Loop *loop, ssp_source *s)
@@ -184,11 +203,7 @@ static void ssp_setup_client(imf::Loop *loop, ssp_source *s)
     if(strlen(s->source_ip) == 0) {
         return;
     }
-    if(s->client != nullptr) {
-        //s->client->stop();
-        //delete s->client;
-        s->client = nullptr;
-    }
+    assert(s->client == nullptr);
     s->client = new imf::SspClient(ip, loop, 0x40000);
     s->client->init();
     s->client->setOnH264DataCallback(std::bind(ssp_on_video_data, _1, s));
@@ -267,13 +282,7 @@ void ssp_source_update(void* data, obs_data_t* settings)
 	if(s->running) {
 		s->running = false;
 	}
-	if(s->clientLooper){
-        blog(LOG_INFO, "Stopping ssp client...");
-        s->clientLooper->stop();
-        delete s->clientLooper;
-        s->clientLooper = nullptr;
-        blog(LOG_INFO, "SSP client stopped.");
-	}
+	ssp_stop(s);
 
 	s->hwaccel = obs_data_get_bool(settings, PROP_HW_ACCEL);
 
@@ -323,15 +332,7 @@ void ssp_source_destroy(void* data)
 {
 	auto s = (struct ssp_source*)data;
 	s->running = false;
-	if(s->clientLooper) {
-	    s->clientLooper->stop();
-        //delete s->clientLooper;
-        s->clientLooper = nullptr;
-    }
-    if(s->client) {
-        //delete s->client;
-        s->client = nullptr;
-    }
+	ssp_stop(s);
 	bfree(s);
 }
 
