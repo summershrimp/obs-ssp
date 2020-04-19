@@ -13,11 +13,13 @@ set(CMAKE_AUTOUIC ON)
 SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/external ${CMAKE_MODULE_PATH})
 
 find_package(LibObs)
-find_package(LibSsp)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
+
+
+include_directories(lib/ssp/include)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(ARCH 64)
@@ -41,7 +43,6 @@ add_library(obs-ssp MODULE
 	${obs-ssp_HEADERS})
 
 include_directories(${LIBOBS_INCLUDE_DIR}
-	${LIBSSP_INCLUDE_DIR}
 	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
 	${Qt5Core_INCLUDES}
 	${Qt5Widgets_INCLUDES}
@@ -49,13 +50,14 @@ include_directories(${LIBOBS_INCLUDE_DIR}
 	${FFMPEG_INCLUDE_DIRS})
 
 target_link_libraries(obs-ssp
-	${LIBSSP_LIB}
 	"${OBS_FRONTEND_LIB}"
 	${LIBOBS_LIB}
 	${FFMPEG_LIBRARIES}
 	Qt5::Network
 	Qt5::Core
 	Qt5::Widgets)
+
+include_directories(lib/ssp)
 
 # Windows
 if(WIN32)

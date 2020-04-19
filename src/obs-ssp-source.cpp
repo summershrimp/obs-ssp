@@ -17,9 +17,6 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 */
 
 #include <string>
-#include <imf/ssp/sspclient.h>
-#include <imf/net/loop.h>
-#include <imf/net/threadloop.h>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -35,6 +32,9 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <thread>
 
 #include "obs-ssp.h"
+#include "imf/ISspClient.h"
+#include "imf/threadloop.h"
+
 extern "C" {
 #include "ffmpeg-decode.h"
 }
@@ -56,11 +56,12 @@ extern "C" {
 #define PROP_LATENCY_LOW 1
 using namespace std::placeholders;
 
+
 struct ssp_source
 {
 	obs_source_t* source;
     imf::ThreadLoop *clientLooper;
-    imf::SspClient *client;
+    imf::ISspClient_class *client;
     int sync_mode;
     int video_range;
     int hwaccel;
@@ -186,11 +187,11 @@ static void ssp_stop(ssp_source *s){
     }
     blog(LOG_INFO, "SSP client stopped.");
     if(s->client){
-        //delete s->client;
+        s->client->destroy();
         s->client = nullptr;
     }
     if(s->clientLooper){
-        //delete s->clientLooper;
+        delete s->clientLooper;
         s->clientLooper = nullptr;
     }
     blog(LOG_INFO, "SSP released.");
@@ -204,7 +205,7 @@ static void ssp_setup_client(imf::Loop *loop, ssp_source *s)
         return;
     }
     assert(s->client == nullptr);
-    s->client = new imf::SspClient(ip, loop, 0x40000);
+    s->client = create_ssp_class(ip, loop, 0x40000, 9999, imf::STREAM_DEFAULT);
     s->client->init();
     s->client->setOnH264DataCallback(std::bind(ssp_on_video_data, _1, s));
     s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
@@ -292,7 +293,7 @@ void ssp_source_update(void* data, obs_data_t* settings)
 		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
     blog(LOG_INFO, "Starting ssp client...");
-	s->clientLooper = new imf::ThreadLoop(std::bind(ssp_setup_client, _1, (ssp_source*)data));
+	s->clientLooper = new imf::ThreadLoop(std::bind(ssp_setup_client, _1, (ssp_source*)data), create_loop_class);
 	s->clientLooper->start();
 	s->running = true;
     blog(LOG_INFO, "SSP client started.");

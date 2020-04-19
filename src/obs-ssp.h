@@ -19,11 +19,17 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #ifndef OBSSSP_H
 #define OBSSSP_H
 
+#include <string>
+#include "imf/ISspClient.h"
+
 #ifndef OBS_SSP_VERSION
 #define OBS_SSP_VERSION "unknown"
 #endif
 
 #define blog(level, msg, ...) blog(level, "[obs-ssp] " msg, ##__VA_ARGS__)
+
+extern create_ssp_class_ptr create_ssp_class;
+extern create_loop_class_ptr create_loop_class;
 
 
 #endif // OBSSSP_H

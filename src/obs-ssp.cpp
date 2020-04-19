@@ -22,6 +22,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include <sys/stat.h>
 #include <obs-module.h>
+#include <util/platform.h>
 
 #include "obs-ssp.h"
 
@@ -32,9 +33,30 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-ssp", "en-US")
 extern struct obs_source_info create_ssp_source_info();
 struct obs_source_info ssp_source_info;
 
+create_ssp_class_ptr create_ssp_class;
+create_loop_class_ptr create_loop_class;
+
+
+
 bool obs_module_load(void)
 {
 	blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %d", OBS_SSP_VERSION, sizeof(ssp_source_info));
+    void *ssp_handle = os_dlopen("libssp.dll");
+    if(!ssp_handle){
+        blog(LOG_WARNING, "Load libssp.dll failed.");
+        return false;
+    }
+    create_ssp_class = (create_ssp_class_ptr)os_dlsym(ssp_handle, "create_ssp_class");
+    if(!create_ssp_class){
+        blog(LOG_WARNING, "Cannot find create_ssp_class() in libssp.dll");
+        return false;
+    }
+
+    create_loop_class = (create_loop_class_ptr)os_dlsym(ssp_handle, "create_loop_class");
+    if(!create_loop_class){
+        blog(LOG_WARNING, "Cannot find create_loop_class() in libssp.dll");
+        return false;
+    }
 
 	ssp_source_info = create_ssp_source_info();
 	obs_register_source(&ssp_source_info);
