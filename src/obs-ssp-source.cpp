@@ -331,6 +331,14 @@ void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
 void ssp_source_destroy(void* data)
 {
 	auto s = (struct ssp_source*)data;
+
+    if(ffmpeg_decode_valid(&s->adecoder)) {
+        ffmpeg_decode_free(&s->adecoder);
+    }
+    if(ffmpeg_decode_valid(&s->vdecoder)) {
+        ffmpeg_decode_free(&s->vdecoder);
+    }
+
 	s->running = false;
 	ssp_stop(s);
 	bfree(s);
