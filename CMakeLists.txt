@@ -16,6 +16,7 @@ find_package(LibObs)
 find_package(LibSsp)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Network REQUIRED)
 find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -28,6 +29,8 @@ set(obs-ssp_SOURCES
 		src/obs-ssp.cpp
 		src/obs-ssp-source.cpp
 		src/ffmpeg-decode.c
+		src/controller/cameraconfig.cpp
+		src/controller/cameracontroller.cpp
 	)
 
 set(obs-ssp_HEADERS
@@ -42,6 +45,7 @@ include_directories(${LIBOBS_INCLUDE_DIR}
 	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
 	${Qt5Core_INCLUDES}
 	${Qt5Widgets_INCLUDES}
+	${Qt5Network_INCLUDES}
 	${FFMPEG_INCLUDE_DIRS})
 
 target_link_libraries(obs-ssp
@@ -49,6 +53,7 @@ target_link_libraries(obs-ssp
 	"${OBS_FRONTEND_LIB}"
 	${LIBOBS_LIB}
 	${FFMPEG_LIBRARIES}
+	Qt5::Network
 	Qt5::Core
 	Qt5::Widgets)
 
