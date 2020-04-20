@@ -41,22 +41,24 @@ create_loop_class_ptr create_loop_class;
 bool obs_module_load(void)
 {
 	blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %d", OBS_SSP_VERSION, sizeof(ssp_source_info));
-    void *ssp_handle = os_dlopen("libssp.dll");
+    void *ssp_handle = os_dlopen(LIBSSP_LIBRARY_NAME);
     if(!ssp_handle){
-        blog(LOG_WARNING, "Load libssp.dll failed.");
+        blog(LOG_WARNING, "Load %s failed.", LIBSSP_LIBRARY_NAME);
         return false;
     }
     create_ssp_class = (create_ssp_class_ptr)os_dlsym(ssp_handle, "create_ssp_class");
     if(!create_ssp_class){
-        blog(LOG_WARNING, "Cannot find create_ssp_class() in libssp.dll");
+        blog(LOG_WARNING, "Cannot find create_ssp_class() in %s.", LIBSSP_LIBRARY_NAME);
         return false;
     }
 
     create_loop_class = (create_loop_class_ptr)os_dlsym(ssp_handle, "create_loop_class");
     if(!create_loop_class){
-        blog(LOG_WARNING, "Cannot find create_loop_class() in libssp.dll");
+        blog(LOG_WARNING, "Cannot find create_loop_class() in %s.", LIBSSP_LIBRARY_NAME);
         return false;
     }
+
+    blog(LOG_INFO, "libssp load successful!");
 
 	ssp_source_info = create_ssp_source_info();
 	obs_register_source(&ssp_source_info);

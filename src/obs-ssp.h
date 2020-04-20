@@ -31,5 +31,13 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
 
+#ifdef _WIN64
+#   define LIBSSP_LIBRARY_NAME "libssp.dll"
+#elif defined(__APPLE__)
+#   define LIBSSP_LIBRARY_NAME "libssp.dylib"
+#else
+#   define LIBSSP_LIBRARY_NAME "libssp.so"
+#endif
+
 
 #endif // OBSSSP_H
