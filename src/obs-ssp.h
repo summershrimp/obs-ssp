@@ -34,7 +34,7 @@ extern create_loop_class_ptr create_loop_class;
 #ifdef _WIN64
 #   define LIBSSP_LIBRARY_NAME "libssp.dll"
 #elif defined(__APPLE__)
-#   define LIBSSP_LIBRARY_NAME "libssp.dylib"
+#   define LIBSSP_LIBRARY_NAME "/Library/Application Support/obs-studio/plugins/obs-ssp/bin/libssp.dylib"
 #else
 #   define LIBSSP_LIBRARY_NAME "libssp.so"
 #endif
