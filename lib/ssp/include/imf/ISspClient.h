@@ -4,7 +4,11 @@
 
 namespace imf
 {
+#ifdef _WIN32
 #define LIBSSP_API __declspec(dllexport)
+#else
+#define LIBSSP_API
+#endif
 #define ERROR_SSP_PROTOCOL_VERSION_GT_SERVER        (-1000)
 #define ERROR_SSP_PROTOCOL_VERSION_LT_SERVER        (-1001)
 #define ERROR_SSP_CONNECTION_FAILED                 (-1002)

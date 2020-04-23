@@ -30,7 +30,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
-#include "cameraConfig.h"
+#include "cameraconfig.h"
 
 CameraConfig::CameraConfig() {
 

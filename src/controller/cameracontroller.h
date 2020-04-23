@@ -37,7 +37,7 @@
 #include <functional>
 #include <cstdio>
 
-#include "cameraConfig.h"
+#include "cameraconfig.h"
 
 
 #define URL_INFO                    "/info"
