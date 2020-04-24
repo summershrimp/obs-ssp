@@ -18,6 +18,7 @@ find_package(LibObs REQUIRED)
 find_package(Qt5 REQUIRED Core Widgets Network)
 find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 
+add_subdirectory(thirdpty)
 
 include_directories(lib/ssp/include)
 
@@ -33,10 +34,10 @@ set(obs-ssp_SOURCES
 		src/ffmpeg-decode.c
 		src/controller/cameraconfig.cpp
 		src/controller/cameracontroller.cpp
-	)
+		src/ssp-mdns.cpp)
 
 set(obs-ssp_HEADERS
-		src/obs-ssp.h)
+		src/obs-ssp.h src/ssp-mdns.h)
 
 add_library(obs-ssp MODULE
 	${obs-ssp_SOURCES}
@@ -55,8 +56,8 @@ target_link_libraries(obs-ssp
 		${FFMPEG_LIBRARIES}
 		Qt5::Network
 		Qt5::Core
-		Qt5::Widgets)
-
+		Qt5::Widgets
+		mdns)
 
 # Windows
 if(WIN32)

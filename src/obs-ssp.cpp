@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program; If not, see <https://www.gnu.org/licenses/>
 */
 
+#include "ssp-mdns.h"
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -23,6 +25,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <sys/stat.h>
 #include <obs-module.h>
 #include <util/platform.h>
+#include <pthread.h>
 
 #include "obs-ssp.h"
 
@@ -35,8 +38,6 @@ struct obs_source_info ssp_source_info;
 
 create_ssp_class_ptr create_ssp_class;
 create_loop_class_ptr create_loop_class;
-
-
 
 bool obs_module_load(void)
 {
@@ -60,6 +61,8 @@ bool obs_module_load(void)
 
     blog(LOG_INFO, "libssp load successful!");
 
+    create_mdns_loop();
+
 	ssp_source_info = create_ssp_source_info();
 	obs_register_source(&ssp_source_info);
 	return true;
@@ -67,6 +70,7 @@ bool obs_module_load(void)
 
 void obs_module_unload()
 {
+    stop_mdns_loop();
 	blog(LOG_INFO, "goodbye !");
 }
 

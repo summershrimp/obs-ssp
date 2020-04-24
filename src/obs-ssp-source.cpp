@@ -17,6 +17,8 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 */
 
 #include <string>
+#include <string.h>
+#include "ssp-mdns.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -40,6 +42,10 @@ extern "C" {
 }
 
 #define PROP_SOURCE_IP "ssp_source_ip"
+#define PROP_CUSTOM_SOURCE_IP "ssp_custom_source_ip"
+
+#define PROP_CUSTOM_VALUE "\x01\x02custom"
+
 #define PROP_HW_ACCEL "ssp_recv_hw_accel"
 #define PROP_SYNC "ssp_sync"
 #define PROP_LATENCY "latency"
@@ -228,16 +234,59 @@ const char* ssp_source_getname(void* data)
 	return obs_module_text("SSPPlugin.SSPSourceName");
 }
 
+static bool ssp_source_ip_modified(obs_properties_t *props,
+                                   obs_property_t *property,
+                                   obs_data_t *settings) {
+    const char *source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
+    if(strcmp(source_ip, PROP_CUSTOM_VALUE) == 0) {
+        obs_property_t *custom_ip = obs_properties_get(props, PROP_CUSTOM_SOURCE_IP);
+        obs_property_set_visible(property, false);
+        obs_property_set_visible(custom_ip, true);
+        obs_data_set_string(settings, PROP_CUSTOM_SOURCE_IP, "10.98.32.1");
+        return true;
+    }
+
+    return true;
+}
+
 obs_properties_t* ssp_source_getproperties(void* data)
 {
+    char nametext[256];
 	auto s = (struct ssp_source*)data;
 
 	obs_properties_t* props = obs_properties_create();
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
-	obs_property_t* source_ip = obs_properties_add_text(props, PROP_SOURCE_IP,
+	obs_property_t* source_ip = obs_properties_add_list(props, PROP_SOURCE_IP,
 		obs_module_text("SSPPlugin.SourceProps.SourceIp"),
-		OBS_TEXT_DEFAULT);
+        OBS_COMBO_TYPE_LIST,
+        OBS_COMBO_FORMAT_STRING);
+
+	int count = 0;
+
+	SspMDnsIterator iter;
+	while(iter.hasNext()) {
+        ssp_device_item *item = iter.next();
+        if(item == nullptr){
+            continue;
+        }
+        snprintf(nametext, 256, "%s (%s)", item->device_name.c_str(), item->ip_address.c_str());
+        obs_property_list_add_string(source_ip, nametext, item->ip_address.c_str());
+        ++count;
+	}
+
+	if(count == 0)
+	    obs_property_list_add_string(source_ip, obs_module_text("SSPPlugin.SourceProps.NotFound"), "");
+    obs_property_list_add_string(source_ip, obs_module_text("SSPPlugin.SourceProps.Custom"), PROP_CUSTOM_VALUE);
+
+
+    obs_property_t* custom_source_ip = obs_properties_add_text(props, PROP_CUSTOM_SOURCE_IP,
+        obs_module_text("SSPPlugin.SourceProps.SourceIp"),
+        OBS_TEXT_DEFAULT);
+
+    obs_property_set_visible(custom_source_ip, false);
+
+    obs_property_set_modified_callback(source_ip, ssp_source_ip_modified);
 
 	obs_property_t* sync_modes = obs_properties_add_list(props, PROP_SYNC,
 		obs_module_text("SSPPlugin.SourceProps.Sync"),
@@ -273,7 +322,9 @@ void ssp_source_getdefaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, PROP_SYNC, PROP_SYNC_SSP_TIMESTAMP);
 	obs_data_set_default_int(settings, PROP_LATENCY, PROP_LATENCY_NORMAL);
-	obs_data_set_default_string(settings, PROP_SOURCE_IP, "10.98.32.1");
+	obs_data_set_default_string(settings, PROP_SOURCE_IP, "");
+    obs_data_set_default_string(settings, PROP_CUSTOM_SOURCE_IP, "");
+    obs_data_set_default_bool(settings, PROP_HW_ACCEL, false);
 }
 
 void ssp_source_update(void* data, obs_data_t* settings)
@@ -289,6 +340,9 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
 	s->sync_mode = (int)obs_data_get_int(settings, PROP_SYNC);
     s->source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
+    if(strcmp(s->source_ip, PROP_CUSTOM_VALUE) == 0) {
+        s->source_ip = obs_data_get_string(settings, PROP_CUSTOM_SOURCE_IP);
+    }
 	const bool is_unbuffered =
 		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
@@ -331,6 +385,7 @@ void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
 
 void ssp_source_destroy(void* data)
 {
+    blog(LOG_INFO, "destroying source...");
 	auto s = (struct ssp_source*)data;
 
     if(ffmpeg_decode_valid(&s->adecoder)) {
@@ -343,6 +398,7 @@ void ssp_source_destroy(void* data)
 	s->running = false;
 	ssp_stop(s);
 	bfree(s);
+    blog(LOG_INFO, "source destroyed.");
 }
 
 struct obs_source_info create_ssp_source_info()
