@@ -39,5 +39,6 @@ extern create_loop_class_ptr create_loop_class;
 #   define LIBSSP_LIBRARY_NAME "libssp.so"
 #endif
 
+#define ZCAM_QUERY_DOMAIN "_eagle._tcp.local"
 
 #endif // OBSSSP_H
