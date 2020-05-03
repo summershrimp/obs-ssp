@@ -79,5 +79,5 @@ const char* obs_module_name()
 
 const char* obs_module_description()
 {
-	return "Z CAM SSP input integration for OBS Studio";
+	return "Simple Stream Protocol input integration for OBS Studio";
 }

@@ -1,7 +1,7 @@
 obs-ssp
 ==============
 
-Network A/V in OBS Studio with ZCam SSP Protocol
+Network A/V in OBS Studio with Simple Stream Protocol(SSP).
 
 ## Features
 - **SSP Source** : receive video and audio from ZCam cameras to OBS.
