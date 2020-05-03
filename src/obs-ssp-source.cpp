@@ -50,6 +50,7 @@ extern "C" {
 #define PROP_SYNC "ssp_sync"
 #define PROP_LATENCY "latency"
 #define PROP_VIDEO_RANGE "video_range"
+#define PROP_EXP_WAIT_I "exp_wait_i_frame"
 
 #define PROP_BW_HIGHEST 0
 #define PROP_BW_LOWEST 1
@@ -71,6 +72,9 @@ struct ssp_source
     int sync_mode;
     int video_range;
     int hwaccel;
+    int wait_i_frame;
+    int i_frame_shown;
+
 	bool running;
 	const char *source_ip;
 
@@ -96,6 +100,14 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_source *s)
             return;
         }
     }
+    if(s->wait_i_frame && !s->i_frame_shown) {
+        if(video->type == 5) {
+            s->i_frame_shown = true;
+        } else {
+            return;
+        }
+    }
+
     int64_t ts = video->pts;
     bool got_output;
     bool success = ffmpeg_decode_video(&s->vdecoder, video->data, video->len, &ts,
@@ -315,6 +327,9 @@ obs_properties_t* ssp_source_getproperties(void* data)
 		obs_module_text("SSPPlugin.SourceProps.Latency.Low"),
 		PROP_LATENCY_LOW);
 
+    obs_properties_add_bool(props, PROP_EXP_WAIT_I,
+                            obs_module_text("SSPPlugin.SourceProps.WaitIFrame"));
+
 	return props;
 }
 
@@ -325,6 +340,7 @@ void ssp_source_getdefaults(obs_data_t* settings)
 	obs_data_set_default_string(settings, PROP_SOURCE_IP, "");
     obs_data_set_default_string(settings, PROP_CUSTOM_SOURCE_IP, "");
     obs_data_set_default_bool(settings, PROP_HW_ACCEL, false);
+    obs_data_set_default_bool(settings, PROP_EXP_WAIT_I, false);
 }
 
 void ssp_source_update(void* data, obs_data_t* settings)
@@ -346,6 +362,10 @@ void ssp_source_update(void* data, obs_data_t* settings)
 	const bool is_unbuffered =
 		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
+
+	s->wait_i_frame = obs_data_get_bool(settings, PROP_EXP_WAIT_I);
+    s->i_frame_shown = false;
+
     blog(LOG_INFO, "Starting ssp client...");
 	s->clientLooper = new imf::ThreadLoop(std::bind(ssp_setup_client, _1, (ssp_source*)data), create_loop_class);
 	s->clientLooper->start();
