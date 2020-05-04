@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <netdb.h>
 #include <mdns.h>
 #include <obs-module.h>
 #include <util/platform.h>
@@ -57,7 +58,7 @@ ipv4_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in* 
     }
     if (len >= (int)capacity)
         len = (int)capacity - 1;
-    mdns_string_t str = {buffer, len};
+    mdns_string_t str = {buffer, (size_t)len};
     return str;
 }
 
@@ -77,7 +78,7 @@ ipv6_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in6*
     }
     if (len >= (int)capacity)
         len = (int)capacity - 1;
-    mdns_string_t str = {buffer, len};
+    mdns_string_t str = {buffer, (size_t)len};
     return str;
 }
 
