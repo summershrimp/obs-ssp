@@ -99,6 +99,27 @@ if(WIN32)
 				"$<TARGET_FILE:obs-ssp>"
 				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
 
+			# If config is RelWithDebInfo, package release files
+		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
+			"${CMAKE_COMMAND}" -E make_directory
+				"${RELEASE_DIR}/data/obs-plugins/obs-ssp"
+				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
+
+		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
+			"${CMAKE_COMMAND}" -E copy_directory
+				"${PROJECT_SOURCE_DIR}/data"
+				"${RELEASE_DIR}/data/obs-plugins/obs-ssp")
+
+		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
+			"${CMAKE_COMMAND}" -E copy
+				"$<TARGET_FILE:obs-ssp>"
+				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
+
+		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
+			"${CMAKE_COMMAND}" -E copy
+				"$<TARGET_PDB_FILE:obs-ssp>"
+				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
+
 		# Copy to obs-studio dev environment for immediate testing
 		COMMAND if $<CONFIG:Debug>==1 (
 			"${CMAKE_COMMAND}" -E copy
