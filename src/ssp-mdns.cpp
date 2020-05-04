@@ -9,7 +9,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+
+#ifndef _WIN32
 #include <netdb.h>
+#endif
+
 #include <mdns.h>
 #include <obs-module.h>
 #include <util/platform.h>
