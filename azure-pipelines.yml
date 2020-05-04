@@ -64,12 +64,6 @@ jobs:
         OBSPath: $(OBSPath)
 
     - task: MSBuild@1
-      displayName: 'Build OBS Studio 32-bit'
-      inputs:
-        msbuildArguments: '/m /p:Configuration=$(build_config)'
-        solution: '$(OBSPath)\build32\obs-studio.sln'
-
-    - task: MSBuild@1
       displayName: 'Build OBS Studio 64-bit'
       inputs:
         msbuildArguments: '/m /p:Configuration=$(build_config)'
@@ -82,12 +76,6 @@ jobs:
         QTDIR32: $(QTDIR32)
         QTDIR64: $(QTDIR64)
         OBSPath: $(OBSPath)
-
-    - task: MSBuild@1
-      displayName: 'Build obs-ssp 32-bit'
-      inputs:
-        msbuildArguments: '/m /p:Configuration=$(build_config)'
-        solution: '.\build32\obs-ssp.sln'
 
     - task: MSBuild@1
       displayName: 'Build obs-ssp 64-bit'
@@ -103,31 +91,6 @@ jobs:
       inputs:
         pathtoPublish: './package'
         artifactName: 'windows_build'
-
-- job: 'Build_Linux'
-  pool:
-    vmImage: 'ubuntu-18.04'
-  variables:
-      BUILD_REASON: $(Build.Reason)
-      BRANCH_SHORT_NAME: $(Build.SourceBranchName)
-      BRANCH_FULL_NAME: $(Build.SourceBranch)
-  steps:
-    - checkout: self
-      submodules: true
-
-    - script: ./CI/install-dependencies-ubuntu.sh
-      displayName: 'Install dependencies'
-
-    - script: ./CI/build-ubuntu.sh
-      displayName: 'Build obs-ssp'
-
-    - script: ./CI/package-ubuntu.sh
-      displayName: 'Package obs-ssp'
-
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathtoPublish: './package'
-        artifactName: 'deb_build'
 
 - job: 'Build_macOS'
   pool:
