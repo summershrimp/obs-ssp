@@ -86,6 +86,7 @@ if(WIN32)
 	add_custom_command(TARGET obs-ssp POST_BUILD
 		COMMAND if $<CONFIG:Release>==1 (
 			"${CMAKE_COMMAND}" -E make_directory
+				"${RELEASE_DIR}/bin/${OBS_ARCH_NAME}"
 				"${RELEASE_DIR}/data/obs-plugins/obs-ssp"
 				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
 
@@ -99,9 +100,15 @@ if(WIN32)
 				"$<TARGET_FILE:obs-ssp>"
 				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
 
+		COMMAND if $<CONFIG:Release>==1 (
+			"${CMAKE_COMMAND}" -E copy
+				"$<TARGET_FILE:Qt5::Network>"
+				"${RELEASE_DIR}/bin/${OBS_ARCH_NAME}")
+
 			# If config is RelWithDebInfo, package release files
 		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
 			"${CMAKE_COMMAND}" -E make_directory
+				"${RELEASE_DIR}/bin/${OBS_ARCH_NAME}"
 				"${RELEASE_DIR}/data/obs-plugins/obs-ssp"
 				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
 
@@ -119,6 +126,11 @@ if(WIN32)
 			"${CMAKE_COMMAND}" -E copy
 				"$<TARGET_PDB_FILE:obs-ssp>"
 				"${RELEASE_DIR}/obs-plugins/${OBS_ARCH_NAME}")
+
+		COMMAND if $<CONFIG:RelWithDebInfo>==1 (
+			"${CMAKE_COMMAND}" -E copy
+				"$<TARGET_FILE:Qt5::Network>"
+				"${RELEASE_DIR}/bin/${OBS_ARCH_NAME}")
 
 		# Copy to obs-studio dev environment for immediate testing
 		COMMAND if $<CONFIG:Debug>==1 (
