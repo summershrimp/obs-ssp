@@ -383,10 +383,9 @@ void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
 	return s;
 }
 
-void ssp_source_destroy(void* data)
-{
+static void * thread_source_destory(void *data){
     blog(LOG_INFO, "destroying source...");
-	auto s = (struct ssp_source*)data;
+    auto s = (struct ssp_source*)data;
 
     if(ffmpeg_decode_valid(&s->adecoder)) {
         ffmpeg_decode_free(&s->adecoder);
@@ -394,11 +393,18 @@ void ssp_source_destroy(void* data)
     if(ffmpeg_decode_valid(&s->vdecoder)) {
         ffmpeg_decode_free(&s->vdecoder);
     }
-
-	s->running = false;
-	ssp_stop(s);
-	bfree(s);
+    s->running = false;
+    ssp_stop(s);
+    bfree(s);
     blog(LOG_INFO, "source destroyed.");
+    return nullptr;
+}
+
+void ssp_source_destroy(void* data)
+{
+    pthread_t thread;
+    pthread_create(&thread, nullptr, thread_source_destory, data);
+    pthread_detach(thread);
 }
 
 struct obs_source_info create_ssp_source_info()
