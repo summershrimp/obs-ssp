@@ -135,8 +135,6 @@ query_callback(int sock, const struct sockaddr* from, size_t addrlen,
         ssp_records[current_mdns_record.ptr_record] = current_mdns_record;
         ssp_records_lock.unlock();
     }
-    blog(LOG_INFO, "%lu last available:",
-         current_mdns_record.last_available);
     return 0;
 }
 

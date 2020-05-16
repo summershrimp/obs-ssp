@@ -73,6 +73,9 @@ public:
 
     void getCameraConfig(const QString &key, int timeout, OnRequestCallback callback);
     void getCameraConfig(const QString &key, OnRequestCallback callback);
+    void setCameraConfig(const QString &key, const QString &value, OnRequestCallback callback);
+    void getInfo(OnRequestCallback callback);
+
     void requestForCode(const QString &shortPath, int timeout, OnRequestCallback callback);
     void requestForCode(const QString &shortPath, OnRequestCallback callback);
 
@@ -83,6 +86,7 @@ public:
 	void setStreamFPS(const QString &index, const QString& fps, OnRequestCallback callback);
 	void setStreamCodec(const QString &index, const QString &codec, OnRequestCallback callback);
 	void setStreamGop(const QString &index, const QString &gop, OnRequestCallback callback);
+	void setStreamBitwidth(const QString &index, const QString &bitwidth, OnRequestCallback callback);
 	void getStreamInfo(const QString &index, OnRequestCallback callback);
     void setIp(const QString &ip);
 
@@ -97,8 +101,10 @@ public:
     void handleReqeustResult();
 
 private:
+    void handleRequestResult(HttpRequest *req, QNetworkReply *reply);
     //Http request
     void nextRequest();
+    void nextRequest(HttpRequest *req);
     void commonRequest(struct HttpRequest *req);
     void parseResponse(const QByteArray &byteData, struct HttpResponse *rsp, RequestType reqType);
     QString buildRequestPath(const QString &shortPath, const QString &ip, bool useShortPath);

@@ -37,7 +37,7 @@ set(obs-ssp_SOURCES
 		src/ssp-mdns.cpp)
 
 set(obs-ssp_HEADERS
-		src/obs-ssp.h src/ssp-mdns.h)
+		src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/ssp-controller.cpp)
 
 add_library(obs-ssp MODULE
 	${obs-ssp_SOURCES}
