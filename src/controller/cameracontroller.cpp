@@ -48,7 +48,7 @@ CameraController::CameraController(QObject *parent)
 	reply_(Q_NULLPTR),
 	networkManager_(new QNetworkAccessManager(this)),
 	httpRequestQueue_(new QQueue<struct HttpRequest *>()){
-	connect(networkManager_, SIGNAL(finished(QNetworkReply*)), this, SLOT(handleReqeustResult()));
+	//connect(networkManager_, SIGNAL(finished(QNetworkReply*)), this, SLOT(handleReqeustResult()));
 	connect(networkManager_, &QNetworkAccessManager::networkAccessibleChanged, this, [=](QNetworkAccessManager::NetworkAccessibility accessible) {
 		if (accessible != QNetworkAccessManager::NetworkAccessibility::Accessible)
 			networkManager_->setNetworkAccessible(QNetworkAccessManager::Accessible);
@@ -115,16 +115,16 @@ void CameraController::resetNetwork() {
 
 
 void CameraController::cancelCurrentReq() {
-    if (requesting_) {
-        requesting_ = false;
-
-        if (httpRequestQueue_->size() == 0) {
-            HttpRequest *req = new HttpRequest();
-            req->key = HTTP_REQUEST_KEY_INVALID;
-            httpRequestQueue_->enqueue(req);
-        }
-        QTimer::singleShot(1, reply_, SLOT(abort()));
-    }
+//    if (requesting_) {
+//        requesting_ = false;
+//
+//        if (httpRequestQueue_->size() == 0) {
+//            HttpRequest *req = new HttpRequest();
+//            req->key = HTTP_REQUEST_KEY_INVALID;
+//            httpRequestQueue_->enqueue(req);
+//        }
+//        QTimer::singleShot(1, reply_, SLOT(abort()));
+//    }
 }
 
 
@@ -145,6 +145,17 @@ void CameraController::getCameraConfig(const QString &key, int timeout, OnReques
     commonRequest(req);
 }
 
+void CameraController::getInfo(OnRequestCallback callback) {
+    auto *req = new HttpRequest();
+    QString shortPath;
+    shortPath.append(URL_INFO);
+    req->useShortPath = true;
+    req->shortPath = shortPath;
+    req->reqType = RequestType::REQUEST_TYPE_INFO;
+    req->timeout = HTTP_COMMAND_TIMEOUT;
+    req->callback = callback;
+    commonRequest(req);
+}
 
 
 void CameraController::requestForCode(const QString &shortPath, OnRequestCallback callback) {
@@ -160,9 +171,12 @@ void CameraController::requestForCode(const QString &shortPath, int timeout, OnR
     req->callback = callback;
     commonRequest(req);
 }
-
-
-
+void CameraController::setCameraConfig(const QString &key, const QString &value, OnRequestCallback callback) {
+    QString shortPath;
+    // /ctrl/stream_setting?index=stream1&width=1920&height=1080
+    shortPath.append(URL_CTRL_SET).append("?").append(key).append("=").append(value);
+    requestForCode(shortPath, callback);
+}
 
 void CameraController::setSendStream(const QString & value, OnRequestCallback callback) {
     QString shortPath;
@@ -174,10 +188,17 @@ void CameraController::setStreamBitrate(const QString &index, const QString &bit
     shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitrate=").append(bitrate);
     requestForCode(shortPath, callback);
 }
+
 void CameraController::setStreamBitrateAndGop(const QString &index, const QString &bitrate,const QString &gop, OnRequestCallback callback) {
 	QString shortPath;
 	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitrate=").append(bitrate).append("&gop_n=").append(gop);
 	requestForCode(shortPath, callback);
+}
+
+void CameraController::setStreamBitwidth(const QString &index, const QString &bitwidth, OnRequestCallback callback) {
+    QString shortPath;
+    shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitwidth=").append(bitwidth);
+    requestForCode(shortPath, callback);
 }
 
 void CameraController::setStreamResolution(const QString &index, const QString &width,const QString& height, OnRequestCallback callback) {
@@ -223,8 +244,27 @@ void CameraController::getStreamInfo(const QString & index, OnRequestCallback ca
 
 
 void CameraController::commonRequest(HttpRequest *req) {
-    httpRequestQueue_->enqueue(req);
-    nextRequest();
+    //httpRequestQueue_->enqueue(req);
+    nextRequest(req);
+}
+
+void CameraController::nextRequest(HttpRequest *req) {
+    if (networkManager_ == NULL) {
+        return;
+    }
+    requesting_ = true;
+    QString path = buildRequestPath(req->shortPath, req->fullPath, req->useShortPath);
+
+    QUrl url(path);
+    QNetworkRequest request;
+    request.setRawHeader("Connection", "Keep-Alive");
+    request.setUrl(url);
+
+    reply_ = networkManager_->get(request);
+    QTimer::singleShot(req->timeout, reply_, SLOT(abort()));
+    connect(reply_, &QNetworkReply::finished, [=](){
+        handleRequestResult(req, reply_);
+    });
 }
 
 void CameraController::nextRequest() {
@@ -243,55 +283,57 @@ void CameraController::nextRequest() {
     }
 }
 
+void CameraController::handleRequestResult(HttpRequest *req, QNetworkReply *reply_) {
+    int httpCode = 999;
+    if (reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).isValid()) {
+        httpCode = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+    requesting_ = false;
+//    if (req->key == HTTP_REQUEST_KEY_INVALID) {
+//        reply_->deleteLater();
+//
+//        nextRequest();
+//        delete req;
+//        return;
+//    }
+    struct HttpResponse *rsp = new HttpResponse();
+    rsp->reqKey = req->key;
+    rsp->reqValue = req->value;
+    rsp->shortPath = req->shortPath;
+    rsp->reqType = req->reqType;
+    rsp->statusCode = httpCode;
+    rsp->responseError = reply_->error();
 
+    QString info = req->useShortPath ? ip_ + rsp->shortPath : req->fullPath;
+    if (reply_->error() == QNetworkReply::NetworkError::NoError) {
+        parseResponse(reply_->readAll(), rsp, req->reqType);
+
+    } else {
+        if (info.contains(SESSION_HEARTBEAT) &&
+            rsp->responseError == QNetworkReply::NetworkError::UnknownNetworkError) {
+            resetNetwork();
+        }
+    }
+    reply_->deleteLater();
+    reply_ = nullptr;
+    if (rsp->shortPath == URL_CTRL_SESSION) {
+
+    }
+
+    if (req->callback != NULL) {
+        req->callback(rsp);
+    } else {
+        delete rsp;
+    }
+
+    delete req;
+}
 
 void CameraController::handleReqeustResult() {
 	requesting_ = false;
     if (httpRequestQueue_->size() > 0) {
-
-        int httpCode = 999;
-        if (reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).isValid()) {
-            httpCode = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        }
-		
         struct HttpRequest *req = httpRequestQueue_->dequeue();
-        if (req->key == HTTP_REQUEST_KEY_INVALID) {
-            reply_->deleteLater();
-            requesting_ = false;
-            nextRequest();
-            delete req;
-            return;
-        }
-        struct HttpResponse *rsp = new HttpResponse();
-        rsp->reqKey = req->key;
-        rsp->reqValue = req->value;
-        rsp->shortPath = req->shortPath;
-        rsp->reqType = req->reqType;
-        rsp->statusCode = httpCode;
-        rsp->responseError = reply_->error();
-
-        QString info = req->useShortPath ? ip_ + rsp->shortPath : req->fullPath;
-        if (reply_->error() == QNetworkReply::NetworkError::NoError) {
-            parseResponse(reply_->readAll(), rsp, req->reqType);
-
-        } else {           
-            if (info.contains(SESSION_HEARTBEAT) &&
-                rsp->responseError == QNetworkReply::NetworkError::UnknownNetworkError) {
-                resetNetwork();
-            }
-        }
-		reply_->deleteLater();
-        if (rsp->shortPath == URL_CTRL_SESSION) {
-
-        }
-		
-        if (req->callback != NULL) {
-            req->callback(rsp);
-        } else {
-            delete rsp;
-        }
-
-        delete req;
+        handleRequestResult(req, reply_);
     }   
     nextRequest();
 }
@@ -303,7 +345,8 @@ void CameraController::parseResponse(const QByteArray &byteData, struct HttpResp
         if (reqType == REQUEST_TYPE_CONFIG) {
             CameraConfig::parseForConfig(doc.object(), rsp);
         } else if (reqType == REQUEST_TYPE_INFO) {
-
+            rsp->code = 0;
+            rsp->currentValue = doc["model"].toString();
         } else if (reqType == REQUEST_TYPE_FILES) {
         } else if (reqType == REQUEST_TYPE_MEDIA_INFO) {
         } else if (reqType == REQUEST_TYPE_NETINFO) {
