@@ -92,6 +92,7 @@ struct ssp_source
     int sync_mode;
     int video_range;
     int hwaccel;
+    int bitrate;
     int wait_i_frame;
     int i_frame_shown;
     int tally;
@@ -111,6 +112,7 @@ struct ssp_source
     obs_source_audio audio;
 
     bool do_check;
+    bool ip_checked;
 };
 
 
@@ -255,7 +257,7 @@ static void ssp_setup_client(imf::Loop *loop, ssp_source *s)
         return;
     }
     assert(s->client == nullptr);
-    s->client = create_ssp_class(ip, loop, 0x40000, 9999, imf::STREAM_DEFAULT);
+    s->client = create_ssp_class(ip, loop, s->bitrate/8, 9999, imf::STREAM_DEFAULT);
     s->client->init();
     s->client->setOnH264DataCallback(std::bind(ssp_on_video_data, _1, s));
     s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
@@ -283,6 +285,7 @@ bool source_ip_modified(void* data, obs_properties_t *props,
                         obs_data_t *settings) {
     auto s = (struct ssp_source*)data;
     const char *source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
+    s->ip_checked = false;
     if(strcmp(source_ip, PROP_CUSTOM_VALUE) == 0) {
         obs_property_t *custom_ip = obs_properties_get(props, PROP_CUSTOM_SOURCE_IP);
         obs_property_t *check_ip = obs_properties_get(props, PROP_CHECK_IP);
@@ -297,6 +300,7 @@ bool source_ip_modified(void* data, obs_properties_t *props,
     s->cameraStatus->setIp(source_ip);
     s->cameraStatus->refreshAll([=](bool ok){
         if(!ok) return;
+        s->ip_checked = true;
         obs_source_update_properties(s->source);
     });
     return false;
@@ -306,7 +310,8 @@ static bool custom_ip_modify_callback(void* data, obs_properties_t *props,
       obs_property_t *property,
       obs_data_t *settings) {
     auto s = (struct ssp_source*)data;
-    if(!s->do_check){
+    if(s->ip_checked || !s->do_check){
+        s->ip_checked = false;
         blog(LOG_INFO, "ip modified, no need to check.");
         return false;
     }
@@ -320,6 +325,7 @@ static bool custom_ip_modify_callback(void* data, obs_properties_t *props,
     s->cameraStatus->refreshAll([=](bool ok){
         if(!ok) return;
         blog(LOG_INFO, "refresh ok");
+        s->ip_checked = true;
         obs_source_update_properties(s->source);
     });
 
@@ -529,7 +535,7 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
     bitrate *= 1024*1024;
 
-
+    s->bitrate = bitrate;
 
     s->cameraStatus->setStream(stream_index, resolution, framerate, bitrate, [=](bool ok){
         if(!ok)
@@ -578,6 +584,7 @@ void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
 	s->source = source;
 	s->running = false;
 	s->do_check = false;
+	s->ip_checked = false;
 	s->cameraStatus = new CameraStatus();
     ssp_source_update(s, settings);
 	return s;

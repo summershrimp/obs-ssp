@@ -149,28 +149,24 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, QString fps
             if(rsp->statusCode != 200 || rsp->code != 0){
                 return cb(false);
             }
-            controller->setSendStream(index, [=](HttpResponse *rsp){
-                if(rsp->statusCode != 200 || rsp->code != 0){
-                    return cb(false);
-                }
-                controller->setStreamBitrateAndGop(index.toLower(), bitrate2, "10", [=](HttpResponse *rsp){
+            controller->setCameraConfig(CONFIG_KEY_VIDEO_ENCODER, "H.265", [=](HttpResponse *rsp){
+                controller->setSendStream(index, [=](HttpResponse *rsp){
                     if(rsp->statusCode != 200 || rsp->code != 0){
                         return cb(false);
                     }
-                    if(stream_index == 0){
-                        controller->setStreamBitwidth(index.toLower(), "8bit", [=](HttpResponse *rsp){
+                    controller->setStreamBitrateAndGop(index.toLower(), bitrate2, "10", [=](HttpResponse *rsp){
+                        if(rsp->statusCode != 200 || rsp->code != 0){
+                            return cb(false);
+                        }
+                        if(stream_index == 0){
+                            return cb(true);
+                        }
+                        controller->setStreamResolution(index.toLower(), width, height, [=](HttpResponse *rsp){
                             if(rsp->statusCode != 200 || rsp->code != 0){
                                 return cb(false);
                             }
                             return cb(true);
                         });
-                        return ;
-                    }
-                    controller->setStreamResolution(index.toLower(), width, height, [=](HttpResponse *rsp){
-                        if(rsp->statusCode != 200 || rsp->code != 0){
-                            return cb(false);
-                        }
-                        return cb(true);
                     });
                 });
             });
