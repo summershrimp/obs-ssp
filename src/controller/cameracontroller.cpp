@@ -191,7 +191,7 @@ void CameraController::setStreamBitrate(const QString &index, const QString &bit
 
 void CameraController::setStreamBitrateAndGop(const QString &index, const QString &bitrate,const QString &gop, OnRequestCallback callback) {
 	QString shortPath;
-	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitrate=").append(bitrate).append("&gop_n=").append(gop);
+	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitrate=").append(bitrate).append("&gop_n=").append(gop).append("&bitwidth=8bit");
 	requestForCode(shortPath, callback);
 }
 
@@ -256,6 +256,7 @@ void CameraController::nextRequest(HttpRequest *req) {
     QString path = buildRequestPath(req->shortPath, req->fullPath, req->useShortPath);
 
     QUrl url(path);
+    qDebug() << url;
     QNetworkRequest request;
     request.setRawHeader("Connection", "Keep-Alive");
     request.setUrl(url);
@@ -340,6 +341,7 @@ void CameraController::handleReqeustResult() {
 
 
 void CameraController::parseResponse(const QByteArray &byteData, struct HttpResponse *rsp, RequestType reqType) {
+    qDebug() << byteData;
     QJsonDocument doc(QJsonDocument::fromJson(byteData));
     if (!doc.isNull() && doc.isObject()) {
         if (reqType == REQUEST_TYPE_CONFIG) {
