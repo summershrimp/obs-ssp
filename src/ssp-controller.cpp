@@ -82,6 +82,7 @@ void CameraStatus::refreshAll(const StatusUpdateCallback &cb) {
 }
 
 void CameraStatus::doRefresh(StatusUpdateCallback cb) {
+    this->model = "";
     getInfo([=](bool ok){
         cb(ok);
         return ok;
