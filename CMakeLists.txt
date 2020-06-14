@@ -34,10 +34,12 @@ set(obs-ssp_SOURCES
 		src/ffmpeg-decode.c
 		src/controller/cameraconfig.cpp
 		src/controller/cameracontroller.cpp
-		src/ssp-mdns.cpp)
+		src/ssp-mdns.cpp
+		src/ssp-controller.cpp
+		src/VFrameQueue.cpp )
 
 set(obs-ssp_HEADERS
-		src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/ssp-controller.cpp)
+		src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h)
 
 add_library(obs-ssp MODULE
 	${obs-ssp_SOURCES}

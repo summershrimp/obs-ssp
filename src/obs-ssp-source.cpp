@@ -39,6 +39,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "imf/threadloop.h"
 
 #include "ssp-controller.h"
+#include "VFrameQueue.h"
 
 extern "C" {
 #include "ffmpeg-decode.h"
@@ -77,7 +78,6 @@ extern "C" {
 #define SSP_IP_WIFI "10.98.33.1"
 #define SSP_IP_USB "172.18.18.1"
 
-#include <QThread>
 
 using namespace std::placeholders;
 
@@ -111,10 +111,18 @@ struct ssp_source
     AVCodecID aformat;
     obs_source_audio audio;
 
+    VFrameQueue *queue;
+
     bool do_check;
     bool ip_checked;
 };
 
+static void ssp_video_data_enqueue(struct imf::SspH264Data *video, ssp_source *s) {
+    if(!s->queue){
+        return;
+    }
+    s->queue->enqueue(*video, video->pts, video->type == 5);
+}
 
 static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_source *s)
 {
@@ -239,6 +247,12 @@ static void ssp_stop(ssp_source *s){
         s->clientLooper = nullptr;
     }
 
+    if(s->queue){
+        s->queue->stop();
+        delete s->queue;
+        s->queue = nullptr;
+    }
+
     if(ffmpeg_decode_valid(&s->adecoder)) {
         ffmpeg_decode_free(&s->adecoder);
     }
@@ -259,11 +273,17 @@ static void ssp_setup_client(imf::Loop *loop, ssp_source *s)
     assert(s->client == nullptr);
     s->client = create_ssp_class(ip, loop, s->bitrate/8, 9999, imf::STREAM_DEFAULT);
     s->client->init();
-    s->client->setOnH264DataCallback(std::bind(ssp_on_video_data, _1, s));
+    s->client->setOnH264DataCallback(std::bind(ssp_video_data_enqueue, _1, s));
     s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
     s->client->setOnMetaCallback(std::bind(ssp_on_meta_data, _1, _2, _3, s));
     s->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, s));
     s->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, s));
+
+    assert(s->queue == nullptr);
+    s->queue = new VFrameQueue;
+    s->queue->setFrameCallback(std::bind(ssp_on_video_data, _1, s));
+
+    s->queue->start();
     s->client->start();
 }
 
