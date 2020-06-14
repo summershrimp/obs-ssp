@@ -261,7 +261,7 @@ void CameraController::nextRequest(HttpRequest *req) {
     request.setRawHeader("Connection", "Keep-Alive");
     request.setUrl(url);
 
-    reply_ = networkManager_->get(request);
+    auto reply_ = networkManager_->get(request);
     QTimer::singleShot(req->timeout, reply_, SLOT(abort()));
     connect(reply_, &QNetworkReply::finished, [=](){
         handleRequestResult(req, reply_);
