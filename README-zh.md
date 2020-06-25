@@ -3,17 +3,15 @@ obs-ssp
 
 Network A/V in OBS Studio with Simple Stream Protocol(SSP).
 
-[简体中文](./README-zh.md)
-
-## Features
-- **SSP Source** : receive video and audio from ZCam cameras to OBS.
+## 功能
+- **SSP 源** : 添加ZCAM Camera作为OBS源
 
 ![obs-ssp](./images/obs-ssp.png)
 
-## Downloads
-Binaries for Windows, and macOS are available in the [Releases](https://github.com/summershrimp/obs-ssp/releases) section.
+## 下载
+目前支持Windows和macOS 10.14+，安装包请到 [Releases](https://github.com/summershrimp/obs-ssp/releases) 页面下载.
 
-## Users group
+## 交流群
 
 Telegram: https://t.me/joinchat/BbK1thHn4aNXH319h61Spw
 
@@ -21,12 +19,11 @@ QQ:
 
 ![QQ](./images/qq-group.png)
 
-
-## Automated Builds
+## 自动构建
 [![Build Status](https://xm1994.visualstudio.com/obs-ssp/_apis/build/status/summershrimp.obs-ssp?branchName=master)](https://xm1994.visualstudio.com/obs-ssp/_build/latest?definitionId=1&branchName=master)
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsummershrimp%2Fobs-ssp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsummershrimp%2Fobs-ssp?ref=badge_shield)
 
 
-## License
+## 许可
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsummershrimp%2Fobs-ssp.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsummershrimp%2Fobs-ssp?ref=badge_large)
