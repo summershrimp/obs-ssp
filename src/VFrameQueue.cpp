@@ -68,6 +68,10 @@ void VFrameQueue::run(VFrameQueue *q) {
     uint64_t lastFrameTime = 0, lastStartTime = 0, processingTime = 0;
     q->sem.acquire();
     q->queueLock.lock();
+    if(q->frameQueue.empty()) {
+        q->queueLock.unlock();
+        return;
+    }
     current = q->frameQueue.dequeue();
     q->queueLock.unlock();
     lastStartTime = os_gettime_ns()/1000;
