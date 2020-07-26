@@ -5,3 +5,6 @@
 /installer/Output/
 .DS_Store
 .idea
+out/
+.vs/
+.vscode/
