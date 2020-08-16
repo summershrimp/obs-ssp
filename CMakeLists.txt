@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(obs-ssp VERSION 0.9.0)
+project(obs-ssp VERSION 0.9.1)
 
 add_compile_definitions(OBS_SSP_VERSION="${CMAKE_PROJECT_VERSION}")
 
