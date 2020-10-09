@@ -36,10 +36,15 @@ set(obs-ssp_SOURCES
 		src/controller/cameracontroller.cpp
 		src/ssp-mdns.cpp
 		src/ssp-controller.cpp
-		src/VFrameQueue.cpp )
+		src/VFrameQueue.cpp
+		src/ssp-client.cpp)
 
 set(obs-ssp_HEADERS
-		src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h)
+		src/obs-ssp.h
+		src/ssp-mdns.h
+		src/ssp-controller.h
+		src/VFrameQueue.h
+		src/ssp-client.h)
 
 add_library(obs-ssp MODULE
 	${obs-ssp_SOURCES}
