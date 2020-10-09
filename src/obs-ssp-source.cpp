@@ -39,6 +39,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "imf/threadloop.h"
 
 #include "ssp-controller.h"
+#include "ssp-client.h"
 #include "VFrameQueue.h"
 
 extern "C" {
@@ -85,8 +86,7 @@ using namespace std::placeholders;
 struct ssp_source;
 
 struct ssp_connection {
-    imf::ThreadLoop *clientLooper;
-    imf::ISspClient_class *client;
+    SSPClient *client;
     ffmpeg_decode vdecoder;
     uint32_t width;
     uint32_t height;
@@ -271,26 +271,18 @@ static void ssp_conn_stop(ssp_connection *conn) {
     blog(LOG_INFO, "Stopping ssp client...");
     conn->running = false;
     auto client = conn->client;
-    auto clientLooper = conn->clientLooper;
     auto queue = conn->queue;
 
     if(client){
-        client->stop();
+        emit client->Stop();
+        delete client;
     }
     if(queue){
         queue->stop();
         delete queue;
     }
-    if(clientLooper){
-        clientLooper->stop();
-    }
+
     blog(LOG_INFO, "SSP client stopped.");
-    if(client){
-        client->destroy();
-    }
-    if(clientLooper){
-        delete clientLooper;
-    }
 
     if(ffmpeg_decode_valid(&conn->adecoder)) {
         ffmpeg_decode_free(&conn->adecoder);
@@ -326,8 +318,9 @@ static void ssp_stop(ssp_source *s, bool detach = false){
     }
 }
 
-static void ssp_setup_client(imf::Loop *loop, ssp_connection *s)
-{
+
+static void ssp_conn_start(ssp_connection *s){
+    blog(LOG_INFO, "Starting ssp client...");
     std::string ip = s->source->source_ip;
     blog(LOG_INFO, "target ip: %s", s->source->source_ip);
     if(strlen(s->source->source_ip) == 0) {
@@ -335,11 +328,13 @@ static void ssp_setup_client(imf::Loop *loop, ssp_connection *s)
     }
     assert(s->client == nullptr);
     assert(s->source != nullptr);
-    s->client = create_ssp_class(ip, loop, s->source->bitrate/8, 9999, imf::STREAM_DEFAULT);
-    s->client->init();
+    s->client = new SSPClient(ip, s->source->bitrate/8);
     s->client->setOnH264DataCallback(std::bind(ssp_video_data_enqueue, _1, s));
     s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
     s->client->setOnMetaCallback(std::bind(ssp_on_meta_data, _1, _2, _3, s));
+    s->client->setOnConnectionConnectedCallback([](){
+        blog(LOG_INFO, "ssp connected.");
+    });
     s->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, s));
     s->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, s));
 
@@ -348,13 +343,7 @@ static void ssp_setup_client(imf::Loop *loop, ssp_connection *s)
     s->queue->setFrameCallback(std::bind(ssp_on_video_data, _1, s));
 
     s->queue->start();
-    s->client->start();
-}
-
-static void ssp_conn_start(ssp_connection *s){
-    blog(LOG_INFO, "Starting ssp client...");
-    s->clientLooper = new imf::ThreadLoop(std::bind(ssp_setup_client, _1, s), create_loop_class);
-    s->clientLooper->start();
+    emit s->client->Start();
     s->running = true;
     blog(LOG_INFO, "SSP client started.");
 }

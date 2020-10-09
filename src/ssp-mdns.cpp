@@ -373,7 +373,7 @@ send_mdns_query(const char* service, size_t service_len) {
 		query_id[isock] = mdns_query_send(sockets[isock], MDNS_RECORDTYPE_PTR, service,
 		                                  service_len, buffer, capacity, current_id++);
 		if (query_id[isock] < 0)
-			blog(LOG_INFO, "Failed to send mDNS query: %s", strerror(errno));
+			blog(LOG_DEBUG, "Failed to send mDNS query: %s", strerror(errno));
 	}
 
 	// This is a simple implementation that loops for 5 seconds or as long as we get replies
