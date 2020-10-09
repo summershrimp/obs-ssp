@@ -63,6 +63,8 @@ target_link_libraries(obs-ssp
 
 # Windows
 if(WIN32)
+	configure_file(installer/installer.iss.in ${CMAKE_SOURCE_DIR}/installer/installer.iss)
+
 	set(OBS_FRONTEND_LIB "OBS_FRONTEND_LIB-NOTFOUND" CACHE FILEPATH "OBS frontend library")
 	if(OBS_FRONTEND_LIB EQUAL "OBS_FRONTEND_LIB-NOTFOUND")
 		message(FATAL_ERROR "Could not find OBS Frontend API\'s library !")
@@ -153,6 +155,7 @@ endif()
 
 # OSX
 if(APPLE)
+	configure_file(installer/obs-ssp.pkgproj.in ${CMAKE_SOURCE_DIR}/installer/obs-ssp.pkgproj)
 	set_target_properties(obs-ssp PROPERTIES PREFIX "")
 	target_link_libraries(obs-ssp
 		"${OBS_FRONTEND_LIB}")
