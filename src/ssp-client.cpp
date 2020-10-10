@@ -28,7 +28,7 @@ SSPClient::SSPClient(const std::string &ip, uint32_t bufferSize) {
     this->impl = nullptr;
     this->running = false;
     connect(this, SIGNAL(Start()), this, SLOT(doStart()));
-    connect(this, SIGNAL(Stop()), this, SLOT(doStop()));
+    connect(this, SIGNAL(Destroy()), this, SLOT(doDestroy()));
 }
 using namespace std::placeholders;
 
@@ -43,7 +43,7 @@ void SSPClient::doStart() {
     loopLock.unlock();
 }
 
-void SSPClient::doStop() {
+void SSPClient::doDestroy() {
     implLock.lock();
     if(impl) {
         impl->stop();
@@ -59,10 +59,10 @@ void SSPClient::doStop() {
         threadLoop = nullptr;
     }
     loopLock.unlock();
+    delete this;
 }
 
 void SSPClient::PreStart(SSPClient *my, imf::Loop *loop) {
-    ssp_blog(LOG_INFO, "SSPClient starting...");
     if(!my || ! loop) {
         return;
     }
@@ -90,7 +90,6 @@ void SSPClient::PreStart(SSPClient *my, imf::Loop *loop) {
     if(my->audioDataCallback) {
         my->impl->setOnAudioDataCallback(my->audioDataCallback);
     }
-    ssp_blog(LOG_INFO, "SSPClient 2starting...");
     my->impl->start();
     my->implLock.unlock();
 }
@@ -121,8 +120,4 @@ void SSPClient::setOnH264DataCallback(const imf::OnH264DataCallback &cb) {
 
 void SSPClient::setOnExceptionCallback(const imf::OnExceptionCallback &cb) {
     this->exceptionCallback = cb;
-}
-
-SSPClient::~SSPClient() {
-    doStop();
 }
