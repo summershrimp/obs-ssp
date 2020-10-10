@@ -274,8 +274,7 @@ static void ssp_conn_stop(ssp_connection *conn) {
     auto queue = conn->queue;
 
     if(client){
-        emit client->Stop();
-        delete client;
+        emit client->Destroy();
     }
     if(queue){
         queue->stop();
@@ -294,7 +293,7 @@ static void ssp_conn_stop(ssp_connection *conn) {
     blog(LOG_INFO, "SSP released.");
 }
 
-static void* thread_ssp_conn_stop(void *data) {
+static void* thread_ssp_stop(void *data) {
     auto *conn = (ssp_connection *)data;
     if(!data) {
         return nullptr;
@@ -309,7 +308,7 @@ static void ssp_stop(ssp_source *s, bool detach = false){
         return ;
     }
     pthread_t thread;
-    pthread_create(&thread, nullptr, thread_ssp_conn_stop, (void *)s->conn);
+    pthread_create(&thread, nullptr, thread_ssp_stop, (void *) s->conn);
     s->conn = nullptr;
     if(detach) {
         pthread_detach(thread);
