@@ -29,7 +29,6 @@ class SSPClient : public QObject{
 
 public:
     SSPClient(const std::string &ip, uint32_t bufferSize);
-    ~SSPClient();
     static void PreStart(SSPClient *my, imf::Loop *loop);
 
     virtual void setOnRecvBufferFullCallback(const imf::OnRecvBufferFullCallback & cb);
@@ -42,11 +41,12 @@ public:
 
 signals:
     void Start();
-    void Stop();
+    /* Never Use an instance after destroy!!!!!! */
+    void Destroy();
 
 private slots:
     void doStart();
-    void doStop();
+    void doDestroy();
 
 private:
     imf::ThreadLoop *threadLoop;
