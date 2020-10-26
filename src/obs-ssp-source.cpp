@@ -72,6 +72,7 @@ extern "C" {
 #define PROP_LED_TALLY "led_as_tally_light"
 #define PROP_RESOLUTION "ssp_resolution"
 #define PROP_FRAME_RATE "ssp_frame_rate"
+#define PROP_LOW_NOISE "ssp_low_noise"
 #define PROP_BITRATE "ssp_bitrate"
 #define PROP_STREAM_INDEX "ssp_stream_index"
 #define PROP_ENCODER "ssp_encoding"
@@ -323,6 +324,7 @@ static void ssp_conn_start(ssp_connection *s){
     blog(LOG_INFO, "Starting ssp client...");
     std::string ip = s->source->source_ip;
     blog(LOG_INFO, "target ip: %s", s->source->source_ip);
+    blog(LOG_INFO, "source bitrate: %d", s->source->bitrate);
     if(strlen(s->source->source_ip) == 0) {
         return;
     }
@@ -555,6 +557,9 @@ obs_properties_t* ssp_source_getproperties(void* data)
     obs_property_list_add_string(resolutions, "4K-DCI", "4096*2160");
     obs_property_list_add_string(resolutions, "1080p", "1920*1080");
 
+    obs_properties_add_bool(props, PROP_LOW_NOISE,
+        obs_module_text("SSPPlugin.SourceProps.LowNoise"));
+
     obs_property_set_modified_callback2(resolutions, resolution_modify_callback, data);
 
     obs_properties_add_list(props, PROP_FRAME_RATE,
@@ -612,6 +617,7 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
     auto encoder = obs_data_get_string(settings, PROP_ENCODER);
     auto resolution = obs_data_get_string(settings, PROP_RESOLUTION);
+    auto low_noise = obs_data_get_bool(settings, PROP_LOW_NOISE);
     auto framerate = obs_data_get_string(settings, PROP_FRAME_RATE);
     auto bitrate = obs_data_get_int(settings, PROP_BITRATE);
 
@@ -626,7 +632,7 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
     s->bitrate = bitrate;
 
-    s->cameraStatus->setStream(stream_index, resolution, framerate, bitrate, [=](bool ok){
+    s->cameraStatus->setStream(stream_index, resolution, low_noise, framerate, bitrate, [=](bool ok){
         if(!ok && !s->no_check)
             return;
        ssp_start(s);

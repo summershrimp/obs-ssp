@@ -50,14 +50,14 @@ public:
     std::vector<QString> framerates;
     QString current_framerate;
     StreamInfo current_streamInfo;
-    void setStream(int stream_index, QString resolution, QString fps, int bitrate, StatusUpdateCallback cb);
+    void setStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb);
 
     signals:
-    void onSetStream(int stream_index, QString resolution, QString fps, int bitrate, StatusUpdateCallback cb);
+    void onSetStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb);
     void onRefresh(StatusUpdateCallback cb);
     void onSetLed(bool on);
 private slots:
-    void doSetStream(int stream_index, QString resolution, QString fps, int bitrate, StatusUpdateCallback cb);
+    void doSetStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb);
     void doRefresh(StatusUpdateCallback cb);
     void doSetLed(bool on);
 
