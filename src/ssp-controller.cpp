@@ -23,7 +23,7 @@ CameraStatus::CameraStatus():QObject(){
     controller = new CameraController(this);
 
     qRegisterMetaType<StatusUpdateCallback>("StatusUpdateCallback");
-    connect(this, SIGNAL(onSetStream(int, QString, QString, int, StatusUpdateCallback)), this, SLOT(doSetStream(int, QString, QString, int, StatusUpdateCallback)));
+    connect(this, SIGNAL(onSetStream(int, QString, bool, QString, int, StatusUpdateCallback)), this, SLOT(doSetStream(int, QString, bool, QString, int, StatusUpdateCallback)));
     connect(this, SIGNAL(onSetLed(bool)), this, SLOT(doSetLed(bool)));
     connect(this, SIGNAL(onRefresh(StatusUpdateCallback)), this, SLOT(doRefresh(StatusUpdateCallback)));
 };
@@ -124,11 +124,11 @@ void CameraStatus::doSetLed(bool isOn) {
     });
 }
 
-void CameraStatus::setStream(int stream_index, QString resolution, QString fps, int bitrate, StatusUpdateCallback cb) {
-    emit onSetStream(stream_index, resolution, fps, bitrate, cb);
+void CameraStatus::setStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb) {
+    emit onSetStream(stream_index, resolution, low_noise, fps, bitrate, cb);
 }
 
-void CameraStatus::doSetStream(int stream_index, QString resolution, QString fps, int bitrate, StatusUpdateCallback cb) {
+void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb) {
     bool need_downresolution = false;
     if(model.contains(E2C_MODEL_CODE, Qt::CaseInsensitive)) {
         if (resolution != "1920*1080" && fps.toDouble() > 30) {
@@ -146,14 +146,22 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, QString fps
     }
     width = arr[0];
     height = arr[1];
-    if(need_downresolution)
+    if (need_downresolution) {
         real_resolution = "1920x1080";
-    else if(resolution == "3840*2160" || resolution == "1920*1080")
+    }
+    else if (resolution == "3840*2160" || resolution == "1920*1080") {
         real_resolution = "4K";
-    else if(resolution == "4096*2160")
+        if (low_noise)
+            real_resolution += " (Low Noise)";
+    }
+    else if (resolution == "4096*2160") {
         real_resolution = "C4K";
-    else
+        if (low_noise)
+            real_resolution += " (Low Noise)";
+    }
+    else {
         return cb(false);
+    }
 
     auto index = QString("Stream") + QString::number(stream_index);
     auto bitrate2 = QString::number(bitrate);
