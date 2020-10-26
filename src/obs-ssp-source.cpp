@@ -149,7 +149,7 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
     if (!ffmpeg_decode_valid(&s->vdecoder)) {
         assert (s->vformat == AV_CODEC_ID_H264 || s->vformat == AV_CODEC_ID_HEVC);
         if (ffmpeg_decode_init(&s->vdecoder, s->vformat, s->source->hwaccel) < 0) {
-            blog(LOG_WARNING, "Could not initialize video decoder");
+            ssp_blog(LOG_WARNING, "Could not initialize video decoder");
             return;
         }
     }
@@ -166,7 +166,7 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
     bool success = ffmpeg_decode_video(&s->vdecoder, video->data, video->len, &ts,
                                        VIDEO_RANGE_PARTIAL, &s->frame, &got_output);
     if (!success) {
-        blog(LOG_WARNING, "Error decoding video");
+        ssp_blog(LOG_WARNING, "Error decoding video");
         return;
     }
 
@@ -189,7 +189,7 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio, ssp_connection *s
     }
     if (!ffmpeg_decode_valid(&s->adecoder)) {
         if (ffmpeg_decode_init(&s->adecoder, s->aformat, false) < 0) {
-            blog(LOG_WARNING, "Could not initialize audio decoder");
+            ssp_blog(LOG_WARNING, "Could not initialize audio decoder");
             return;
         }
     }
@@ -200,7 +200,7 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio, ssp_connection *s
         bool success = ffmpeg_decode_audio(&s->adecoder, data, size,
                                            &s->audio, &got_output);
         if (!success) {
-            blog(LOG_WARNING, "Error decoding audio");
+            ssp_blog(LOG_WARNING, "Error decoding audio");
             return;
         }
         if (got_output) {
@@ -226,9 +226,9 @@ static void ssp_on_meta_data(struct imf::SspVideoMeta *v,
                              struct imf::SspAudioMeta *a,
                              struct imf::SspMeta * m,
                              ssp_connection *s) {
-    blog(LOG_INFO, "ssp v meta: encoder: %u, gop:%u, height:%u, timescale:%u, unit:%u, width:%u", v->encoder, v->gop, v->height, v->timescale, v->unit, v->width);
-    blog(LOG_INFO, "ssp a meta: uinit: %u, timescale:%u, encoder:%u, bitrate:%u, channel:%u, sample_rate:%u, sample_size:%u", a->unit, a->timescale, a->encoder, a->bitrate, a->channel, a->sample_rate, a->sample_size);
-    blog(LOG_INFO, "ssp i meta: pts_is_wall_clock: %u, tc_drop_frame:%u, timecode:%u,", m->pts_is_wall_clock, m->tc_drop_frame, m->timecode);
+    ssp_blog(LOG_INFO, "ssp v meta: encoder: %u, gop:%u, height:%u, timescale:%u, unit:%u, width:%u", v->encoder, v->gop, v->height, v->timescale, v->unit, v->width);
+    ssp_blog(LOG_INFO, "ssp a meta: uinit: %u, timescale:%u, encoder:%u, bitrate:%u, channel:%u, sample_rate:%u, sample_size:%u", a->unit, a->timescale, a->encoder, a->bitrate, a->channel, a->sample_rate, a->sample_size);
+    ssp_blog(LOG_INFO, "ssp i meta: pts_is_wall_clock: %u, tc_drop_frame:%u, timecode:%u,", m->pts_is_wall_clock, m->tc_drop_frame, m->timecode);
     s->vformat = v->encoder == VIDEO_ENCODER_H264 ? AV_CODEC_ID_H264 : AV_CODEC_ID_H265;
     s->frame.width = v->width;
     s->frame.height = v->height;
@@ -247,17 +247,17 @@ void *thread_ssp_reconnect(void *data) {
 }
 
 static void ssp_on_disconnected(ssp_connection *s) {
-    blog(LOG_INFO, "ssp device disconnected.");
+    ssp_blog(LOG_INFO, "ssp device disconnected.");
     pthread_t thread;
     if(s->running) {
-        blog(LOG_INFO, "still running, reconnect...");
+        ssp_blog(LOG_INFO, "still running, reconnect...");
         pthread_create(&thread, nullptr, thread_ssp_reconnect, (void *)s);
         pthread_detach(thread);
     }
 }
 
 static void ssp_on_exception(int code, const char* description, ssp_connection *s) {
-    blog(LOG_ERROR, "ssp exception %d: %s", code, description);
+    ssp_blog(LOG_ERROR, "ssp exception %d: %s", code, description);
     //s->running = false;
 }
 
@@ -269,7 +269,7 @@ static void ssp_start(ssp_source *s){
 }
 
 static void ssp_conn_stop(ssp_connection *conn) {
-    blog(LOG_INFO, "Stopping ssp client...");
+    ssp_blog(LOG_INFO, "Stopping ssp client...");
     conn->running = false;
     auto client = conn->client;
     auto queue = conn->queue;
@@ -283,7 +283,7 @@ static void ssp_conn_stop(ssp_connection *conn) {
         delete queue;
     }
 
-    blog(LOG_INFO, "SSP client stopped.");
+    ssp_blog(LOG_INFO, "SSP client stopped.");
 
     if(ffmpeg_decode_valid(&conn->adecoder)) {
         ffmpeg_decode_free(&conn->adecoder);
@@ -292,7 +292,7 @@ static void ssp_conn_stop(ssp_connection *conn) {
         ffmpeg_decode_free(&conn->vdecoder);
     }
 
-    blog(LOG_INFO, "SSP released.");
+    ssp_blog(LOG_INFO, "SSP released.");
 }
 
 static void* thread_ssp_conn_stop(void *data) {
@@ -321,10 +321,10 @@ static void ssp_stop(ssp_source *s, bool detach = false){
 
 
 static void ssp_conn_start(ssp_connection *s){
-    blog(LOG_INFO, "Starting ssp client...");
+    ssp_blog(LOG_INFO, "Starting ssp client...");
     std::string ip = s->source->source_ip;
-    blog(LOG_INFO, "target ip: %s", s->source->source_ip);
-    blog(LOG_INFO, "source bitrate: %d", s->source->bitrate);
+    ssp_blog(LOG_INFO, "target ip: %s", s->source->source_ip);
+    ssp_blog(LOG_INFO, "source bitrate: %d", s->source->bitrate);
     if(strlen(s->source->source_ip) == 0) {
         return;
     }
@@ -335,7 +335,7 @@ static void ssp_conn_start(ssp_connection *s){
     s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
     s->client->setOnMetaCallback(std::bind(ssp_on_meta_data, _1, _2, _3, s));
     s->client->setOnConnectionConnectedCallback([](){
-        blog(LOG_INFO, "ssp connected.");
+        ssp_blog(LOG_INFO, "ssp connected.");
     });
     s->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, s));
     s->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, s));
@@ -347,7 +347,7 @@ static void ssp_conn_start(ssp_connection *s){
     s->queue->start();
     emit s->client->Start();
     s->running = true;
-    blog(LOG_INFO, "SSP client started.");
+    ssp_blog(LOG_INFO, "SSP client started.");
 }
 
 static obs_source_frame* blank_video_frame()
@@ -395,11 +395,11 @@ static bool custom_ip_modify_callback(void* data, obs_properties_t *props,
     auto s = (struct ssp_source*)data;
     if(s->ip_checked || !s->do_check){
         s->ip_checked = false;
-        blog(LOG_INFO, "ip modified, no need to check.");
+        ssp_blog(LOG_INFO, "ip modified, no need to check.");
         return false;
     }
     s->do_check = false;
-    blog(LOG_INFO, "ip modified, need to check.");
+    ssp_blog(LOG_INFO, "ip modified, need to check.");
     auto ip = obs_data_get_string(settings, PROP_CUSTOM_SOURCE_IP);
     if(strcmp(ip, "") == 0) {
         return false;
@@ -407,12 +407,12 @@ static bool custom_ip_modify_callback(void* data, obs_properties_t *props,
     s->cameraStatus->setIp(ip);
     s->cameraStatus->refreshAll([=](bool ok){
         if(!ok) return;
-        blog(LOG_INFO, "refresh ok");
+        ssp_blog(LOG_INFO, "refresh ok");
         s->ip_checked = true;
         obs_source_update_properties(s->source);
     });
 
-    blog(LOG_INFO, "ip check queued.");
+    ssp_blog(LOG_INFO, "ip check queued.");
     return false;
 }
 
@@ -431,7 +431,7 @@ static bool resolution_modify_callback(void* data, obs_properties_t *props,
     auto resolution = obs_data_get_string(settings, PROP_RESOLUTION);
     obs_property_list_add_string(framerates, "25 fps", "25");
     obs_property_list_add_string(framerates, "30 fps", "29.97");
-    blog(LOG_INFO, "Camera model: %s", s->cameraStatus->model.toStdString().c_str());
+    ssp_blog(LOG_INFO, "Camera model: %s", s->cameraStatus->model.toStdString().c_str());
     if(strcmp(resolution, "1920*1080") != 0 || !s->cameraStatus->model.contains(E2C_MODEL_CODE, Qt::CaseInsensitive)) {
         obs_property_list_add_string(framerates, "50 fps", "50");
         obs_property_list_add_string(framerates, "60 fps", "59.94");
@@ -586,6 +586,7 @@ void ssp_source_getdefaults(obs_data_t* settings)
     obs_data_set_default_bool(settings, PROP_HW_ACCEL, false);
     obs_data_set_default_bool(settings, PROP_EXP_WAIT_I, false);
     obs_data_set_default_bool(settings, PROP_LED_TALLY, false);
+    obs_data_set_default_bool(settings, PROP_LOW_NOISE, false);
     obs_data_set_default_string(settings, PROP_ENCODER, "H264");
     obs_data_set_default_string(settings, PROP_FRAME_RATE, "29.97");
 
@@ -607,6 +608,10 @@ void ssp_source_update(void* data, obs_data_t* settings)
     if(strlen(s->source_ip) == 0){
         return;
     }
+
+    // Set the IP of our camera from the configuration (used to build the url)
+    s->cameraStatus->setIp(s->source_ip);
+
 	const bool is_unbuffered =
 		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
@@ -632,10 +637,14 @@ void ssp_source_update(void* data, obs_data_t* settings)
 
     s->bitrate = bitrate;
 
-    s->cameraStatus->setStream(stream_index, resolution, low_noise, framerate, bitrate, [=](bool ok){
-        if(!ok && !s->no_check)
+    ssp_blog(LOG_INFO, "Calling setStream on ssp source");
+    s->cameraStatus->setStream(stream_index, resolution, low_noise, framerate, bitrate, [=](bool ok, QString reason) {
+        if (!ok && !s->no_check) {
+            blog(LOG_INFO, QString("setStream failed, not starting ssp: %1").arg(reason).toStdString().c_str());
             return;
-       ssp_start(s);
+        }
+        ssp_blog(LOG_INFO, "Set stream succeeded, starting ssp");
+        ssp_start(s);
     });
 }
 
@@ -645,7 +654,7 @@ void ssp_source_shown(void* data)
     if(s->tally) {
         s->cameraStatus->setLed(true);
     }
-    blog(LOG_INFO, "ssp source shown.");
+    ssp_blog(LOG_INFO, "ssp source shown.");
 }
 
 void ssp_source_hidden(void* data)
@@ -654,17 +663,17 @@ void ssp_source_hidden(void* data)
     if(s->tally) {
         s->cameraStatus->setLed(false);
     }
-    blog(LOG_INFO, "ssp source hidden.");
+    ssp_blog(LOG_INFO, "ssp source hidden.");
 }
 
 void ssp_source_activated(void* data)
 {
-    blog(LOG_INFO, "ssp source activated.");
+    ssp_blog(LOG_INFO, "ssp source activated.");
 }
 
 void ssp_source_deactivated(void* data)
 {
-    blog(LOG_INFO, "ssp source deactivated.");
+    ssp_blog(LOG_INFO, "ssp source deactivated.");
 }
 
 void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
@@ -680,12 +689,12 @@ void* ssp_source_create(obs_data_t* settings, obs_source_t* source)
 }
 
 static void * thread_source_destory(void *data){
-    blog(LOG_INFO, "destroying source...");
+    ssp_blog(LOG_INFO, "destroying source...");
     auto s = (struct ssp_source*)data;
 
     ssp_stop(s);
     bfree(s);
-    blog(LOG_INFO, "source destroyed.");
+    ssp_blog(LOG_INFO, "source destroyed.");
     return nullptr;
 }
 

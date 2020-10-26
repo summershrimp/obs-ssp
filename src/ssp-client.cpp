@@ -62,7 +62,7 @@ void SSPClient::doStop() {
 }
 
 void SSPClient::PreStart(SSPClient *my, imf::Loop *loop) {
-    blog(LOG_INFO, "SSPClient starting...");
+    ssp_blog(LOG_INFO, "SSPClient starting...");
     if(!my || ! loop) {
         return;
     }
@@ -90,7 +90,7 @@ void SSPClient::PreStart(SSPClient *my, imf::Loop *loop) {
     if(my->audioDataCallback) {
         my->impl->setOnAudioDataCallback(my->audioDataCallback);
     }
-    blog(LOG_INFO, "SSPClient 2starting...");
+    ssp_blog(LOG_INFO, "SSPClient 2starting...");
     my->impl->start();
     my->implLock.unlock();
 }

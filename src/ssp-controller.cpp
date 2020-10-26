@@ -18,12 +18,15 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include <QMetaType>
 #include "ssp-controller.h"
+#include <obs-module.h>
+
 
 CameraStatus::CameraStatus():QObject(){
     controller = new CameraController(this);
 
     qRegisterMetaType<StatusUpdateCallback>("StatusUpdateCallback");
-    connect(this, SIGNAL(onSetStream(int, QString, bool, QString, int, StatusUpdateCallback)), this, SLOT(doSetStream(int, QString, bool, QString, int, StatusUpdateCallback)));
+    qRegisterMetaType<StatusReasonUpdateCallback>("StatusReasonUpdateCallback");
+    connect(this, SIGNAL(onSetStream(int, QString, bool, QString, int, StatusReasonUpdateCallback)), this, SLOT(doSetStream(int, QString, bool, QString, int, StatusReasonUpdateCallback)));
     connect(this, SIGNAL(onSetLed(bool)), this, SLOT(doSetLed(bool)));
     connect(this, SIGNAL(onRefresh(StatusUpdateCallback)), this, SLOT(doRefresh(StatusUpdateCallback)));
 };
@@ -124,15 +127,17 @@ void CameraStatus::doSetLed(bool isOn) {
     });
 }
 
-void CameraStatus::setStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb) {
+void CameraStatus::setStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusReasonUpdateCallback cb) {
+    blog(LOG_INFO, "In ::setStream emitting onSetStream");
     emit onSetStream(stream_index, resolution, low_noise, fps, bitrate, cb);
 }
 
-void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusUpdateCallback cb) {
+void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_noise, QString fps, int bitrate, StatusReasonUpdateCallback cb) {
     bool need_downresolution = false;
+    blog(LOG_INFO, "In doSetStream");
     if(model.contains(E2C_MODEL_CODE, Qt::CaseInsensitive)) {
         if (resolution != "1920*1080" && fps.toDouble() > 30) {
-            return cb(false);
+            return cb(false, QString("Cannot go higher than 30fps for >1920x1080 resolution on E2C"));
         }
         if(resolution == "1920*1080" && fps.toDouble() > 30) {
             need_downresolution = true;
@@ -142,7 +147,7 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_no
     QString width, height;
     auto arr = resolution.split("*");
     if(arr.size() < 2) {
-        return cb(false);
+        return cb(false, "Resolution doesn't have a single * to seperate w from h");
     }
     width = arr[0];
     height = arr[1];
@@ -160,36 +165,43 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_no
             real_resolution += " (Low Noise)";
     }
     else {
-        return cb(false);
+        return cb(false, QString("Unknown resolution: ").arg(resolution));
     }
 
     auto index = QString("Stream") + QString::number(stream_index);
     auto bitrate2 = QString::number(bitrate);
+    blog(LOG_INFO, "Setting movie resolution");
     controller->setCameraConfig(CONFIG_KEY_MOVIE_RESOLUTION, real_resolution, [=](HttpResponse *rsp){
         if(rsp->statusCode != 200 || rsp->code != 0){
-            return cb(false);
+            return cb(false, QString("Failed to set movie resolution to %1").arg(real_resolution));
         }
+        blog(LOG_INFO, "Setting fps");
         controller->setCameraConfig(CONFIG_KEY_PROJECT_FPS, fps, [=](HttpResponse *rsp){
             if(rsp->statusCode != 200 || rsp->code != 0){
-                return cb(false);
+                return cb(false, QString("Failed to set fps to %1").arg(fps));
             }
+            blog(LOG_INFO, "Setting encoder");
             controller->setCameraConfig(CONFIG_KEY_VIDEO_ENCODER, "H.265", [=](HttpResponse *rsp){
+                blog(LOG_INFO, "Setting sendStream");
+
                 controller->setSendStream(index, [=](HttpResponse *rsp){
                     if(rsp->statusCode != 200 || rsp->code != 0){
-                        return cb(false);
+                        return cb(false, QString("Could not set video encoder to H.265"));
                     }
+                    blog(LOG_INFO, "Setting bitrate andn gop");
                     controller->setStreamBitrateAndGop(index.toLower(), bitrate2, "10", [=](HttpResponse *rsp){
                         if(rsp->statusCode != 200 || rsp->code != 0){
-                            return cb(false);
+                            return cb(false, QString("Could not set bitrate to %1 or GOP to 10").arg(bitrate2));
                         }
                         if(stream_index == 0){
-                            return cb(true);
+                            return cb(true, "Success");
                         }
+                        blog(LOG_INFO, "Setting stream resolution");
                         controller->setStreamResolution(index.toLower(), width, height, [=](HttpResponse *rsp){
                             if(rsp->statusCode != 200 || rsp->code != 0){
-                                return cb(false);
+                                return cb(false, QString("Could not set stream resolution to %1 x %2").arg(width).arg(height));
                             }
-                            return cb(true);
+                            return cb(true, "Success");
                         });
                     });
                 });

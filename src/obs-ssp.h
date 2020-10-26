@@ -26,7 +26,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #define OBS_SSP_VERSION "unknown"
 #endif
 
-#define blog(level, msg, ...) blog(level, "[obs-ssp] " msg, ##__VA_ARGS__)
+#define ssp_blog(level, msg, ...) blog(level, "[obs-ssp] " msg, ##__VA_ARGS__)
 
 extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
