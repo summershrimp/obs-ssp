@@ -191,7 +191,7 @@ open_client_sockets(int* sockets, int max_sockets, int port) {
 
 	if (!adapter_address || (ret != NO_ERROR)) {
 		free(adapter_address);
-		blog(LOG_ERROR, "Failed to get network adapter addresses");
+		ssp_blog(LOG_ERROR, "Failed to get network adapter addresses");
 		return num_sockets;
 	}
 
@@ -278,7 +278,7 @@ open_client_sockets(int* sockets, int max_sockets, int port) {
 	struct ifaddrs* ifa = 0;
 
 	if (getifaddrs(&ifaddr) < 0)
-		blog(LOG_ERROR, "Unable to get interface addresses");
+		ssp_blog(LOG_ERROR, "Unable to get interface addresses");
 
 	int first_ipv4 = 1;
 	int first_ipv6 = 1;
@@ -361,7 +361,7 @@ send_mdns_query(const char* service, size_t service_len) {
 	int query_id[32];
 	int num_sockets = open_client_sockets(sockets, sizeof(sockets) / sizeof(sockets[0]), 0);
 	if (num_sockets <= 0) {
-		blog(LOG_ERROR, "Failed to open any client sockets");
+		ssp_blog(LOG_ERROR, "Failed to open any client sockets");
 		return -1;
 	}
 
@@ -373,7 +373,7 @@ send_mdns_query(const char* service, size_t service_len) {
 		query_id[isock] = mdns_query_send(sockets[isock], MDNS_RECORDTYPE_PTR, service,
 		                                  service_len, buffer, capacity, current_id++);
 		if (query_id[isock] < 0)
-			blog(LOG_DEBUG, "Failed to send mDNS query: %s", strerror(errno));
+			ssp_blog(LOG_DEBUG, "Failed to send mDNS query: %s", strerror(errno));
 	}
 
 	// This is a simple implementation that loops for 5 seconds or as long as we get replies
@@ -434,18 +434,18 @@ void create_mdns_loop(){
     g_mdns_args.service_str_size = strlen(ZCAM_QUERY_DOMAIN);
     g_mdns_args.running = true;
     pthread_create(&mdns_thread, nullptr, mdns_loop, (void*)&g_mdns_args);
-    blog(LOG_INFO, "mdns query thread started.");
+    ssp_blog(LOG_INFO, "mdns query thread started.");
 }
 
 void stop_mdns_loop(){
     ssp_records_lock.lock();
     ssp_records.clear();
     ssp_records_lock.unlock();
-    blog(LOG_INFO, "stop mdns query thread...");
+    ssp_blog(LOG_INFO, "stop mdns query thread...");
     while(g_mdns_args.running)
         g_mdns_args.running = false;
     pthread_join(mdns_thread, nullptr);
-    blog(LOG_INFO, "mdns query thread stopped.");
+    ssp_blog(LOG_INFO, "mdns query thread stopped.");
 }
 
 
