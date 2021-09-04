@@ -35,13 +35,19 @@ else
     git fetch
 fi
 
-OBSLatestTag=$(git describe --tags --abbrev=0)
-git checkout $OBSLatestTag
+if [ -z "${OBSTargetVersion}" ]; then
+    OBSLatestTag=$(git describe --tags --abbrev=0)
+    echo "[obs-ssp] Checking out ${OBSLatestTag}"
+    git checkout $OBSLatestTag
+else
+    echo "[obs-ssp] Checking out ${OBSTargetVersion}"
+    git checkout $OBSTargetVersion
+fi
 rm -fr build
 mkdir -p build && cd build
 echo "[obs-ssp] Building obs-studio.."
 cmake .. \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=10.11 \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
     -DDISABLE_PLUGINS=true \
     -DENABLE_SCRIPTING=0 \
     -DDepsPath=/tmp/obsdeps \

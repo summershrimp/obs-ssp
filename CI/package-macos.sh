@@ -32,9 +32,9 @@ install_name_tool \
 		@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore \
 	-change /tmp/obsdeps/lib/QtNetwork.framework/Versions/5/QtNetwork \
 		@executable_path/../Frameworks/QtNetwork.framework/Versions/5/QtNetwork \
-	-change /tmp/obsdeps/bin/libavcodec.58.dylib \
+	-change /tmp/obsdeps/lib/libavcodec.58.dylib \
 		@executable_path/../Frameworks/libavcodec.58.dylib \
-	-change /tmp/obsdeps/bin/libavutil.56.dylib \
+	-change /tmp/obsdeps/lib/libavutil.56.dylib \
 		@executable_path/../Frameworks/libavutil.56.dylib \
 	./build/obs-ssp.so
 
