@@ -51,7 +51,8 @@ fi
 
 if [ ! -f "installer/libssp.dylib" ]; then
   wget -c --retry-connrefused --waitretry=1 -P installer \
-    https://github.com/imaginevision/libssp/raw/fa0affd3858049a7773995c38bb454f989e7c8f4/lib/mac/libssp.dylib
+    https://github.com/summershrimp/obs-deps/releases/download/2021-04-03/libssp.dylib
+    #https://github.com/imaginevision/libssp/raw/fa0affd3858049a7773995c38bb454f989e7c8f4/lib/mac/libssp.dylib
 fi
 
 echo "[obs-ssp] Actual package build"
