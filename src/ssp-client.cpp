@@ -28,7 +28,6 @@ SSPClient::SSPClient(const std::string &ip, uint32_t bufferSize) {
     this->impl = nullptr;
     this->running = false;
     connect(this, SIGNAL(Start()), this, SLOT(doStart()));
-    connect(this, SIGNAL(Destroy()), this, SLOT(doDestroy()));
 }
 using namespace std::placeholders;
 
@@ -43,7 +42,13 @@ void SSPClient::doStart() {
     loopLock.unlock();
 }
 
-void SSPClient::doDestroy() {
+void SSPClient::Restart() {
+    if(this->impl) {
+        this->impl->start();
+    }
+}
+
+void SSPClient::Stop() {
     implLock.lock();
     if(impl) {
         impl->stop();
@@ -59,7 +64,6 @@ void SSPClient::doDestroy() {
         threadLoop = nullptr;
     }
     loopLock.unlock();
-    delete this;
 }
 
 void SSPClient::PreStart(SSPClient *my, imf::Loop *loop) {

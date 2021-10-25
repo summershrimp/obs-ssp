@@ -38,15 +38,13 @@ public:
     virtual void setOnDisconnectedCallback(const imf::OnDisconnectedCallback & cb);
     virtual void setOnConnectionConnectedCallback(const imf::OnConnectionConnectedCallback & cb);
     virtual void setOnExceptionCallback(const imf::OnExceptionCallback & cb);
-
+    void Stop();
+    void Restart();
 signals:
     void Start();
-    /* Never Use an instance after destroy!!!!!! */
-    void Destroy();
 
 private slots:
     void doStart();
-    void doDestroy();
 
 private:
     imf::ThreadLoop *threadLoop;
