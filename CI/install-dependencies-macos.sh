@@ -21,6 +21,7 @@ echo "[obs-ssp] Updating Homebrew.."
 brew update >/dev/null
 
 echo "[obs-ssp] Checking installed Homebrew formulas.."
+export HOMEBREW_NO_AUTO_UPDATE=1
 BREW_PACKAGES=$(brew list)
 BREW_DEPENDENCIES="jack speexdsp ccache swig mbedtls"
 
