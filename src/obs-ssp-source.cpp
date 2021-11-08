@@ -399,7 +399,7 @@ void *thread_ssp_reconnect(void *data) {
     conn->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, conn));
     conn->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, conn));
 
-    assert(s->queue == nullptr);
+    assert(conn->queue == nullptr);
     conn->queue = new VFrameQueue;
     conn->queue->setFrameCallback(std::bind(ssp_on_video_data, _1, conn));
 
