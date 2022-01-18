@@ -49,7 +49,6 @@ public:
 		thread_.join();
 	}
 
-private:
 	void run(void)
 	{
 		if (loop_) {
@@ -64,6 +63,7 @@ private:
 		loop_->loop();
 	}
 
+private:
 	PreLoopCallback preLoopCb_;
 	bool started_;
 	std::thread thread_;

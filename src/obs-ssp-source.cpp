@@ -40,7 +40,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "imf/threadloop.h"
 
 #include "ssp-controller.h"
-#include "ssp-client.h"
+#include "ssp-client-iso.h"
 #include "VFrameQueue.h"
 
 extern "C" {
@@ -87,7 +87,7 @@ using namespace std::placeholders;
 struct ssp_source;
 
 struct ssp_connection {
-	SSPClient *client;
+	SSPClientIso *client;
 	ffmpeg_decode vdecoder;
 	uint32_t width;
 	uint32_t height;
@@ -350,7 +350,7 @@ static void ssp_conn_start(ssp_connection *s)
 		return;
 	}
 	pthread_mutex_lock(&s->lck);
-	s->client = new SSPClient(ip, s->source->bitrate / 8);
+	s->client = new SSPClientIso(ip, s->source->bitrate / 8);
 	s->client->setOnH264DataCallback(
 		std::bind(ssp_video_data_enqueue, _1, s));
 	s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
@@ -416,7 +416,7 @@ void *thread_ssp_reconnect(void *data)
 		pthread_mutex_unlock(&conn->lck);
 		return nullptr;
 	}
-	conn->client = new SSPClient(ip, conn->source->bitrate / 8);
+	conn->client = new SSPClientIso(ip, conn->source->bitrate / 8);
 	conn->client->setOnH264DataCallback(
 		std::bind(ssp_video_data_enqueue, _1, conn));
 	conn->client->setOnAudioDataCallback(

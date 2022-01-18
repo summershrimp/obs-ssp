@@ -30,7 +30,8 @@ set(obs-ssp_SOURCES
     src/ssp-mdns.cpp
     src/ssp-controller.cpp
     src/VFrameQueue.cpp
-    src/ssp-client.cpp)
+    src/ssp-client.cpp
+    src/ssp-client-iso.cpp)
 
 set(obs-ssp_HEADERS src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h
                     src/ssp-client.h)
@@ -67,8 +68,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
 find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 add_subdirectory(thirdpty)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src
-                                                         ${CMAKE_SOURCE_DIR}/lib/ssp/include)
+target_include_directories(
+  ${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/lib/ssp/include
+                                ${CMAKE_SOURCE_DIR}/ssp_connector)
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs FFmpeg::avcodec FFmpeg::avutil mdns)
 
@@ -111,24 +113,12 @@ endif()
 
 setup_plugin_target(${CMAKE_PROJECT_NAME})
 
-if(OS_WINDOWS)
-  set(LIBSSP_DOWNLOAD_ADDR
-      "https://github.com/imaginevision/libssp/raw/fa0affd3858049a7773995c38bb454f989e7c8f4/lib/win_x64_vs2017/libssp.dll"
-  )
-  set(LIBSSP_FILENAME "libssp.dll")
-  set(LIBSSP_HASH "SHA256=905cdccf06d8eededa18c26b21395404e64a086cc3e87679d4bd8cd38c7497d3")
-  set(LIBSSP_INSTALL_PREFIX "${OBS_PLUGIN_DESTINATION}")
-elseif(OS_MACOS)
-  set(LIBSSP_DOWNLOAD_ADDR
-      "https://github.com/summershrimp/obs-deps/releases/download/2021-04-03/libssp.dylib")
-  set(LIBSSP_FILENAME "libssp.dylib")
-  set(LIBSSP_HASH "SHA256=5e04060a8f248785202b0b097cc52a0c23c2f8cff8796c9d3c0672da28d9cf0c")
-  set(LIBSSP_INSTALL_PREFIX "./${CMAKE_PROJECT_NAME}.plugin/Contents/Frameworks")
-endif()
+add_subdirectory(ssp_connector)
 
-if(LIBSSP_DOWNLOAD_ADDR)
-  install(
-    CODE "file(DOWNLOAD \"${LIBSSP_DOWNLOAD_ADDR}\" \"${CMAKE_BINARY_DIR}/${LIBSSP_FILENAME}\" SHOW_PROGRESS EXPECTED_HASH \"${LIBSSP_HASH}\")
-          file(INSTALL \"${CMAKE_BINARY_DIR}/${LIBSSP_FILENAME}\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${LIBSSP_INSTALL_PREFIX}\")"
-  )
+if(OS_MACOS)
+  install(TARGETS ssp-connector DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/MacOS")
+  install(FILES ${LIBSSP_LIBRARY} DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/Frameworks")
+elseif(OS_WINDOWS)
+  install(TARGETS ssp-connector DESTINATION "${OBS_LIBRARY_DESTINATION}")
+  install(FILES ${LIBSSP_LIBRARY} DESTINATION "${OBS_LIBRARY_DESTINATION}")
 endif()
