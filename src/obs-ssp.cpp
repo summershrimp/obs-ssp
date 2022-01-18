@@ -48,41 +48,6 @@ bool obs_module_load(void)
 {
 	ssp_blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %lu",
 		 PLUGIN_VERSION, sizeof(ssp_source_info));
-#if defined(__APPLE__)
-	Dl_info info;
-	dladdr((const void *)obs_module_load, &info);
-	blog(LOG_INFO, "path: %s", info.dli_fname);
-	QFileInfo plugin_path(info.dli_fname);
-
-	void *ssp_handle =
-		os_dlopen(plugin_path.dir()
-				  .filePath(QStringLiteral(LIBSSP_LIBRARY_NAME))
-				  .toStdString()
-				  .c_str());
-#else
-	void *ssp_handle = os_dlopen(LIBSSP_LIBRARY_NAME);
-#endif
-	if (!ssp_handle) {
-		ssp_blog(LOG_WARNING, "Load %s failed.", LIBSSP_LIBRARY_NAME);
-		return false;
-	}
-	create_ssp_class =
-		(create_ssp_class_ptr)os_dlsym(ssp_handle, "create_ssp_class");
-	if (!create_ssp_class) {
-		ssp_blog(LOG_WARNING, "Cannot find create_ssp_class() in %s.",
-			 LIBSSP_LIBRARY_NAME);
-		return false;
-	}
-
-	create_loop_class = (create_loop_class_ptr)os_dlsym(
-		ssp_handle, "create_loop_class");
-	if (!create_loop_class) {
-		ssp_blog(LOG_WARNING, "Cannot find create_loop_class() in %s.",
-			 LIBSSP_LIBRARY_NAME);
-		return false;
-	}
-
-	ssp_blog(LOG_INFO, "libssp load successful!");
 
 	create_mdns_loop();
 	ssp_source_info = create_ssp_source_info();
