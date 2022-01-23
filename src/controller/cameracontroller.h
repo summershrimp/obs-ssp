@@ -51,7 +51,7 @@
 
 #define HTTP_SHORT_TIMEOUT          3 * 1000
 #define HTTP_NORMAL_TIMEOUT         5 * 1000
-#define HTTP_COMMAND_TIMEOUT        10 * 1000
+#define HTTP_COMMAND_TIMEOUT        3 * 1000
 #define HTTP_LONG_TIMEOUT           8 * 1000
 #define HTTP_GET_MODE_LONG_TIMEOUT  20 * 1000
 

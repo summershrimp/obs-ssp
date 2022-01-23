@@ -143,6 +143,19 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_no
             need_downresolution = true;
         }
     }
+    auto bitrate2 = QString::number(bitrate);
+
+    if(model.contains(IPMANS_MODEL_CODE, Qt::CaseInsensitive)) {
+        auto index = QString("stream") + QString::number(stream_index + 1);
+        controller->setStreamBitrate(index, bitrate2, [=](HttpResponse *rsp){
+            if(rsp->statusCode != 200 || rsp->code != 0){
+                return cb(false, QString("Could not set bitrate to %1").arg(bitrate2));
+            }
+            return cb(true, "Success");
+        });
+        return;
+    }
+
     QString real_resolution;
     QString width, height;
     auto arr = resolution.split("*");
@@ -169,7 +182,6 @@ void CameraStatus::doSetStream(int stream_index, QString resolution, bool low_no
     }
 
     auto index = QString("Stream") + QString::number(stream_index);
-    auto bitrate2 = QString::number(bitrate);
     blog(LOG_INFO, "Setting movie resolution");
     controller->setCameraConfig(CONFIG_KEY_MOVIE_RESOLUTION, real_resolution, [=](HttpResponse *rsp){
         if(rsp->statusCode != 200 || rsp->code != 0){

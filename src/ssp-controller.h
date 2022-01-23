@@ -24,6 +24,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "controller/cameracontroller.h"
 
 #define E2C_MODEL_CODE "elephant"
+#define IPMANS_MODEL_CODE "wlm"
 
 typedef std::function<void(bool ok)> StatusUpdateCallback;
 typedef std::function<void(bool ok, QString)> StatusReasonUpdateCallback;
