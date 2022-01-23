@@ -443,8 +443,9 @@ bool source_ip_modified(void* data, obs_properties_t *props,
     }
     s->cameraStatus->setIp(source_ip);
     s->cameraStatus->refreshAll([=](bool ok){
-        if(!ok) return;
-        s->ip_checked = true;
+        if(ok) {
+            s->ip_checked = true;
+        }
         obs_source_update_properties(s->source);
     });
     return false;
@@ -467,9 +468,9 @@ static bool custom_ip_modify_callback(void* data, obs_properties_t *props,
     }
     s->cameraStatus->setIp(ip);
     s->cameraStatus->refreshAll([=](bool ok){
-        if(!ok) return;
-        ssp_blog(LOG_INFO, "refresh ok");
-        s->ip_checked = true;
+        if(ok) {
+            s->ip_checked = true;
+        }
         obs_source_update_properties(s->source);
     });
 
@@ -614,16 +615,23 @@ obs_properties_t* ssp_source_getproperties(void* data)
 
     obs_property_set_modified_callback2(resolutions, resolution_modify_callback, data);
 
-    obs_properties_add_list(props, PROP_FRAME_RATE,
+    obs_property_t* framerate = obs_properties_add_list(props, PROP_FRAME_RATE,
                             obs_module_text("SSPPlugin.SourceProps.FrameRate"),
                             OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
     obs_properties_add_int(props, PROP_BITRATE,
                             obs_module_text("SSPPlugin.SourceProps.Bitrate"),
-                            10, 300, 5);
+                            5, 300, 5);
 
-    obs_properties_add_bool(props, PROP_LED_TALLY,
+    obs_property_t* tally = obs_properties_add_bool(props, PROP_LED_TALLY,
                             obs_module_text("SSPPlugin.SourceProps.LedAsTally"));
+
+    if(s->cameraStatus->model.contains(IPMANS_MODEL_CODE, Qt::CaseInsensitive)) {
+        obs_property_set_visible(resolutions, false);
+        obs_property_set_visible(encoders, false);
+        obs_property_set_visible(framerate, false);
+        obs_property_set_visible(tally, false);
+    }
 
 	return props;
 }
