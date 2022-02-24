@@ -21,6 +21,16 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include <string>
 #include "imf/ISspClient.h"
+#include <stdint.h>
+
+#if INTPTR_MAX == INT64_MAX
+#   define OBS_SSP_BITSTR "64bit"
+#elif INTPTR_MAX == INT32_MAX
+#   define OBS_SSP_BITSTR "32bit"
+#else
+#error Unknown pointer size or missing size macros!
+#endif
+
 
 #ifndef OBS_SSP_VERSION
 #define OBS_SSP_VERSION "unknown"
@@ -32,7 +42,7 @@ extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
 
 #ifdef _WIN64
-#   define LIBSSP_LIBRARY_NAME "libssp.dll"
+#   define LIBSSP_LIBRARY_NAME "../../obs-plugins/"OBS_SSP_BITSTR"/libssp.dll"
 #elif defined(__APPLE__)
 #   define LIBSSP_LIBRARY_NAME "/Library/Application Support/obs-studio/plugins/obs-ssp/bin/libssp.dylib"
 #else
