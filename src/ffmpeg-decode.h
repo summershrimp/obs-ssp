@@ -43,6 +43,7 @@ struct ffmpeg_decode {
 	AVFrame *hw_frame;
 	AVFrame *frame;
 	bool hw;
+	enum AVPixelFormat hw_pix_fmt;
 
 	uint8_t *packet_buffer;
 	size_t packet_size;

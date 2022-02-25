@@ -25,11 +25,13 @@
 
 #ifdef USE_NEW_HARDWARE_CODEC_METHOD
 enum AVHWDeviceType hw_priority[] = {
-	AV_HWDEVICE_TYPE_D3D11VA, AV_HWDEVICE_TYPE_DXVA2, AV_HWDEVICE_TYPE_QSV,
-	AV_HWDEVICE_TYPE_CUDA,    AV_HWDEVICE_TYPE_NONE,
+	AV_HWDEVICE_TYPE_QSV, AV_HWDEVICE_TYPE_CUDA,
+	AV_HWDEVICE_TYPE_DXVA2, AV_HWDEVICE_TYPE_D3D11VA,
+	AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+	AV_HWDEVICE_TYPE_NONE
 };
 
-static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type)
+static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type, enum AVPixelFormat *hw_pix_fmt)
 {
 	for (int i = 0;; i++) {
 		const AVCodecHWConfig *config = avcodec_get_hw_config(c, i);
@@ -38,24 +40,44 @@ static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type)
 		}
 
 		if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-		    config->device_type == type)
+		    config->device_type == type) {
+			*hw_pix_fmt = config->pix_fmt;
 			return true;
+		}
 	}
-
 	return false;
+}
+
+static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
+                                        const enum AVPixelFormat *pix_fmts)
+{
+    const enum AVPixelFormat *p, *t;
+	enum AVPixelFormat hw_pix_fmt;
+	struct ffmpeg_decode *d = (struct ffmpeg_decode *) ctx->opaque;
+	hw_pix_fmt = d->hw_pix_fmt;
+
+    for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+        if (*p == hw_pix_fmt)
+			return *p;
+    }
+	blog(LOG_INFO, "Failed to get HW surface format.\n");
+    return AV_PIX_FMT_NONE;
 }
 
 static void init_hw_decoder(struct ffmpeg_decode *d)
 {
 	enum AVHWDeviceType *priority = hw_priority;
 	AVBufferRef *hw_ctx = NULL;
+	enum AVPixelFormat hw_pix_fmt = -1;
 
 	while (*priority != AV_HWDEVICE_TYPE_NONE) {
-		if (has_hw_type(d->codec, *priority)) {
+		if (has_hw_type(d->codec, *priority, &hw_pix_fmt)) {
 			int ret = av_hwdevice_ctx_create(&hw_ctx, *priority,
 							 NULL, NULL, 0);
-			if (ret == 0)
+			if (ret == 0) {
+				blog(LOG_INFO, "Use HW type: %u, format %u", *priority, hw_pix_fmt);
 				break;
+			}
 		}
 
 		priority++;
@@ -63,6 +85,8 @@ static void init_hw_decoder(struct ffmpeg_decode *d)
 
 	if (hw_ctx) {
 		d->decoder->hw_device_ctx = av_buffer_ref(hw_ctx);
+		d->decoder->get_format = get_hw_format;
+		d->hw_pix_fmt = hw_pix_fmt;
 		d->hw = true;
 	}
 }
@@ -77,13 +101,13 @@ int ffmpeg_decode_init(struct ffmpeg_decode *decode, enum AVCodecID id,
 	avcodec_register_all();
 #endif
 	memset(decode, 0, sizeof(*decode));
-
+	decode->hw_pix_fmt = AV_PIX_FMT_NONE;
 	decode->codec = avcodec_find_decoder(id);
 	if (!decode->codec)
 		return -1;
 
 	decode->decoder = avcodec_alloc_context3(decode->codec);
-
+	decode->decoder->opaque = decode;
 	decode->decoder->thread_count = 2;
 	decode->decoder->delay = 0;
 	//decode->decoder->thread_type = 0;
@@ -297,8 +321,11 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 {
 	AVPacket packet = {0};
 	int got_frame = false;
-	AVFrame *out_frame;
-	int ret;
+
+	AVFrame *avframe = NULL, *sw_frame = NULL;
+	AVFrame *tmp_frame = NULL;
+	uint8_t *buffer = NULL;
+	int ret = 0;
 
 	*got_output = false;
 
@@ -313,59 +340,66 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	    obs_avc_keyframe(data, size))
 		packet.flags |= AV_PKT_FLAG_KEY;
 
-	if (!decode->frame) {
+	if(!decode->frame) {
 		decode->frame = av_frame_alloc();
-		if (!decode->frame)
-			return false;
-
-		if (decode->hw && !decode->hw_frame) {
-			decode->hw_frame = av_frame_alloc();
-			if (!decode->hw_frame)
-				return false;
-		}
 	}
 
-	out_frame = decode->hw ? decode->hw_frame : decode->frame;
-
-	ret = avcodec_send_packet(decode->decoder, &packet);
-	if (ret == 0) {
-		ret = avcodec_receive_frame(decode->decoder, out_frame);
+	if(!decode->hw_frame) {
+		decode->hw_frame = av_frame_alloc();
 	}
 
-	got_frame = (ret == 0);
 
-	if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
-		ret = 0;
-
-	if (ret < 0)
+	if (!decode->frame || !decode->hw_frame) {
+		blog(LOG_INFO, "Can not alloc frame\n");
 		return false;
-	else if (!got_frame)
+	}
+
+	avframe = decode->hw_frame;
+	sw_frame = decode->frame;
+
+    ret = avcodec_send_packet(decode->decoder, &packet);
+    if (ret < 0) {
+        blog(LOG_INFO, "Error during decoding\n");
+        return false;
+    }
+
+
+	ret = avcodec_receive_frame(decode->decoder, avframe);
+	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 		return true;
+	} else if (ret < 0) {
+		blog(LOG_INFO, "Error while decoding\n");
+		return false;
+	}
 
 #ifdef USE_NEW_HARDWARE_CODEC_METHOD
-	if (got_frame && decode->hw) {
-		ret = av_hwframe_transfer_data(decode->frame, out_frame, 0);
-		if (ret < 0) {
+	if (avframe->format == decode->hw_pix_fmt) {
+		/* retrieve data from GPU to CPU */
+		if ((ret = av_hwframe_transfer_data(sw_frame, avframe, 0)) < 0) {
+			blog(LOG_INFO, "Error transferring the data to system memory\n");
 			return false;
 		}
-	}
+		tmp_frame = sw_frame;
+	} else
 #endif
+		tmp_frame = avframe;
+
 
 	for (size_t i = 0; i < MAX_AV_PLANES; i++) {
-		frame->data[i] = decode->frame->data[i];
-		frame->linesize[i] = decode->frame->linesize[i];
+		frame->data[i] = tmp_frame->data[i];
+		frame->linesize[i] = tmp_frame->linesize[i];
 	}
 
-	frame->format = convert_pixel_format(decode->frame->format);
+	frame->format = convert_pixel_format(tmp_frame->format);
 
 	if (range == VIDEO_RANGE_DEFAULT) {
-		range = (decode->frame->color_range == AVCOL_RANGE_JPEG)
+		range = (tmp_frame->color_range == AVCOL_RANGE_JPEG)
 				? VIDEO_RANGE_FULL
 				: VIDEO_RANGE_PARTIAL;
 	}
 
 	const enum video_colorspace cs = convert_color_space(
-		decode->frame->colorspace, decode->frame->color_trc);
+		tmp_frame->colorspace, tmp_frame->color_trc);
 
 	const bool success = video_format_get_parameters(
 		cs, range, frame->color_matrix, frame->color_range_min,
@@ -380,10 +414,10 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 
 	frame->range = range;
 
-	*ts = decode->frame->pts;
+	*ts = tmp_frame->pts;
 
-	frame->width = decode->frame->width;
-	frame->height = decode->frame->height;
+	frame->width = tmp_frame->width;
+	frame->height = tmp_frame->height;
 	frame->flip = false;
 
 	if (frame->format == VIDEO_FORMAT_NONE)
