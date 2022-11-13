@@ -49,10 +49,6 @@ CameraController::CameraController(QObject *parent)
 	networkManager_(new QNetworkAccessManager(this)),
 	httpRequestQueue_(new QQueue<struct HttpRequest *>()){
 	//connect(networkManager_, SIGNAL(finished(QNetworkReply*)), this, SLOT(handleReqeustResult()));
-	connect(networkManager_, &QNetworkAccessManager::networkAccessibleChanged, this, [=](QNetworkAccessManager::NetworkAccessibility accessible) {
-		if (accessible != QNetworkAccessManager::NetworkAccessibility::Accessible)
-			networkManager_->setNetworkAccessible(QNetworkAccessManager::Accessible);
-	});
 }
  
 
@@ -102,15 +98,9 @@ void CameraController::cancelReqs(QStringList keys) {
 }
 
 void CameraController::resetNetwork() {
-    //Log
-    QNetworkAccessManager::NetworkAccessibility access = networkManager_->networkAccessible();
-
-    networkManager_->setNetworkAccessible(QNetworkAccessManager::Accessible);
-
-    //Log
-    access = networkManager_->networkAccessible();
-
-
+//     cancelAllReqs();
+//     networkManager_->deleteLater();
+//     networkManager_ = new QNetworkAccessManager(this);
 }
 
 

@@ -22,6 +22,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <string>
 #include "imf/ISspClient.h"
 #include <stdint.h>
+#include "plugin-macros.generated.h"
 
 #if INTPTR_MAX == INT64_MAX
 #   define OBS_SSP_BITSTR "64bit"
@@ -31,12 +32,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #error Unknown pointer size or missing size macros!
 #endif
 
-
-#ifndef OBS_SSP_VERSION
-#define OBS_SSP_VERSION "unknown"
-#endif
-
-#define ssp_blog(level, msg, ...) blog(level, "[obs-ssp] " msg, ##__VA_ARGS__)
+#define ssp_blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
 extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
