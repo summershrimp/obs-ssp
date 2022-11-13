@@ -41,7 +41,7 @@ create_loop_class_ptr create_loop_class;
 
 bool obs_module_load(void)
 {
-    ssp_blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %lu", OBS_SSP_VERSION, sizeof(ssp_source_info));
+    ssp_blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %lu", PLUGIN_VERSION, sizeof(ssp_source_info));
     void *ssp_handle = os_dlopen(LIBSSP_LIBRARY_NAME);
 
     if(!ssp_handle){
