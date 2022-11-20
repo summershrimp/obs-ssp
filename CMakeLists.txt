@@ -22,23 +22,18 @@ set(LINUX_MAINTAINER_EMAIL "xm1994@gmail.com")
 # e.g. in Xcode or Visual Studio
 
 set(obs-ssp_SOURCES
-               src/obs-ssp.cpp
-               src/obs-ssp-source.cpp
-               src/ffmpeg-decode.c
-               src/controller/cameraconfig.cpp
-               src/controller/cameracontroller.cpp
-               src/ssp-mdns.cpp
-               src/ssp-controller.cpp
-               src/VFrameQueue.cpp
-               src/ssp-client.cpp)
+    src/obs-ssp.cpp
+    src/obs-ssp-source.cpp
+    src/ffmpeg-decode.c
+    src/controller/cameraconfig.cpp
+    src/controller/cameracontroller.cpp
+    src/ssp-mdns.cpp
+    src/ssp-controller.cpp
+    src/VFrameQueue.cpp
+    src/ssp-client.cpp)
 
-set(obs-ssp_HEADERS
-               src/obs-ssp.h
-               src/ssp-mdns.h
-               src/ssp-controller.h
-               src/VFrameQueue.h
-               src/ssp-client.h)
-
+set(obs-ssp_HEADERS src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h
+                    src/ssp-client.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${obs-ssp_SOURCES})
 
@@ -62,7 +57,6 @@ set_target_properties(
              AUTOUIC ON
              AUTORCC ON)
 
-
 configure_file(src/plugin-macros.h.in ${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
@@ -73,15 +67,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
 find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 add_subdirectory(thirdpty)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE 
-              ${CMAKE_SOURCE_DIR}/src
-              ${CMAKE_SOURCE_DIR}/lib/ssp/include)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src
+                                                         ${CMAKE_SOURCE_DIR}/lib/ssp/include)
 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE 
-              OBS::libobs
-              FFmpeg::avcodec
-              FFmpeg::avutil
-              mdns)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs FFmpeg::avcodec FFmpeg::avutil mdns)
 
 # --- End of section ---
 

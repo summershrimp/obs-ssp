@@ -25,24 +25,25 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "plugin-macros.generated.h"
 
 #if INTPTR_MAX == INT64_MAX
-#   define OBS_SSP_BITSTR "64bit"
+#define OBS_SSP_BITSTR "64bit"
 #elif INTPTR_MAX == INT32_MAX
-#   define OBS_SSP_BITSTR "32bit"
+#define OBS_SSP_BITSTR "32bit"
 #else
 #error Unknown pointer size or missing size macros!
 #endif
 
-#define ssp_blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
+#define ssp_blog(level, msg, ...) \
+	blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
 extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
 
 #ifdef _WIN64
-#   define LIBSSP_LIBRARY_NAME "../../obs-plugins/"OBS_SSP_BITSTR"/libssp.dll"
+#define LIBSSP_LIBRARY_NAME "../../obs-plugins/" OBS_SSP_BITSTR "/libssp.dll"
 #elif defined(__APPLE__)
-#   define LIBSSP_LIBRARY_NAME "../Frameworks/libssp.dylib"
+#define LIBSSP_LIBRARY_NAME "../Frameworks/libssp.dylib"
 #else
-#   define LIBSSP_LIBRARY_NAME "libssp.so"
+#define LIBSSP_LIBRARY_NAME "libssp.so"
 #endif
 
 #define ZCAM_QUERY_DOMAIN "_eagle._tcp.local"

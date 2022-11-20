@@ -25,13 +25,12 @@
 
 #ifdef USE_NEW_HARDWARE_CODEC_METHOD
 enum AVHWDeviceType hw_priority[] = {
-	AV_HWDEVICE_TYPE_QSV, AV_HWDEVICE_TYPE_CUDA,
-	AV_HWDEVICE_TYPE_DXVA2, AV_HWDEVICE_TYPE_D3D11VA,
-	AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-	AV_HWDEVICE_TYPE_NONE
-};
+	AV_HWDEVICE_TYPE_QSV,          AV_HWDEVICE_TYPE_CUDA,
+	AV_HWDEVICE_TYPE_DXVA2,        AV_HWDEVICE_TYPE_D3D11VA,
+	AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_NONE};
 
-static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type, enum AVPixelFormat *hw_pix_fmt)
+static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type,
+			enum AVPixelFormat *hw_pix_fmt)
 {
 	for (int i = 0;; i++) {
 		const AVCodecHWConfig *config = avcodec_get_hw_config(c, i);
@@ -49,19 +48,19 @@ static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type, enum AVPixelFormat
 }
 
 static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
-                                        const enum AVPixelFormat *pix_fmts)
+					const enum AVPixelFormat *pix_fmts)
 {
-    const enum AVPixelFormat *p, *t;
+	const enum AVPixelFormat *p, *t;
 	enum AVPixelFormat hw_pix_fmt;
-	struct ffmpeg_decode *d = (struct ffmpeg_decode *) ctx->opaque;
+	struct ffmpeg_decode *d = (struct ffmpeg_decode *)ctx->opaque;
 	hw_pix_fmt = d->hw_pix_fmt;
 
-    for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
-        if (*p == hw_pix_fmt)
+	for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+		if (*p == hw_pix_fmt)
 			return *p;
-    }
+	}
 	blog(LOG_INFO, "Failed to get HW surface format.\n");
-    return AV_PIX_FMT_NONE;
+	return AV_PIX_FMT_NONE;
 }
 
 static void init_hw_decoder(struct ffmpeg_decode *d)
@@ -75,7 +74,8 @@ static void init_hw_decoder(struct ffmpeg_decode *d)
 			int ret = av_hwdevice_ctx_create(&hw_ctx, *priority,
 							 NULL, NULL, 0);
 			if (ret == 0) {
-				blog(LOG_INFO, "Use HW type: %u, format %u", *priority, hw_pix_fmt);
+				blog(LOG_INFO, "Use HW type: %u, format %u",
+				     *priority, hw_pix_fmt);
 				break;
 			}
 		}
@@ -340,14 +340,13 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	    obs_avc_keyframe(data, size))
 		packet.flags |= AV_PKT_FLAG_KEY;
 
-	if(!decode->frame) {
+	if (!decode->frame) {
 		decode->frame = av_frame_alloc();
 	}
 
-	if(!decode->hw_frame) {
+	if (!decode->hw_frame) {
 		decode->hw_frame = av_frame_alloc();
 	}
-
 
 	if (!decode->frame || !decode->hw_frame) {
 		blog(LOG_INFO, "Can not alloc frame\n");
@@ -357,12 +356,11 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	avframe = decode->hw_frame;
 	sw_frame = decode->frame;
 
-    ret = avcodec_send_packet(decode->decoder, &packet);
-    if (ret < 0) {
-        blog(LOG_INFO, "Error during decoding\n");
-        return false;
-    }
-
+	ret = avcodec_send_packet(decode->decoder, &packet);
+	if (ret < 0) {
+		blog(LOG_INFO, "Error during decoding\n");
+		return false;
+	}
 
 	ret = avcodec_receive_frame(decode->decoder, avframe);
 	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
@@ -375,15 +373,16 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 #ifdef USE_NEW_HARDWARE_CODEC_METHOD
 	if (avframe->format == decode->hw_pix_fmt) {
 		/* retrieve data from GPU to CPU */
-		if ((ret = av_hwframe_transfer_data(sw_frame, avframe, 0)) < 0) {
-			blog(LOG_INFO, "Error transferring the data to system memory\n");
+		if ((ret = av_hwframe_transfer_data(sw_frame, avframe, 0)) <
+		    0) {
+			blog(LOG_INFO,
+			     "Error transferring the data to system memory\n");
 			return false;
 		}
 		tmp_frame = sw_frame;
 	} else
 #endif
 		tmp_frame = avframe;
-
 
 	for (size_t i = 0; i < MAX_AV_PLANES; i++) {
 		frame->data[i] = tmp_frame->data[i];

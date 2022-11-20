@@ -106,10 +106,10 @@ class CameraController;
 #define CONFIG_KEY_GRID_DISPLAY "grid_display"
 #define CONFIG_KEY_FUCOS_POS "lens_focus_spd"
 #define CONFIG_KEY_FOCUS_SPD "lens_focus_pos"
-#define CONFIG_KEY_MOVIE_FORMAT  "movfmt"
-#define CONFIG_KEY_MOVIE_RESOLUTION  "resolution"
+#define CONFIG_KEY_MOVIE_FORMAT "movfmt"
+#define CONFIG_KEY_MOVIE_RESOLUTION "resolution"
 #define CONFIG_KEY_PROJECT_FPS "project_fps"
-#define CONFIG_KEY_BITRATE  "bitrate_level"
+#define CONFIG_KEY_BITRATE "bitrate_level"
 #define CONFIG_KEY_VIDEO_ENCODER "video_encoder"
 #define CONFIG_KEY_LIVE_FNO "live_ae_fno"
 #define CONFIG_KEY_LIVE_ISO "live_ae_iso"
@@ -156,7 +156,7 @@ class CameraController;
 #define CONFIG_KEY_SN "sn"
 #define CONFIG_KEY_SEND_STREAM "send_stream"
 
-#define  CONFIG_KEY_AE_LOCK  "ae_lock"
+#define CONFIG_KEY_AE_LOCK "ae_lock"
 
 #define SESSION_HEARTBEAT "heart_x_beat"
 
@@ -167,73 +167,71 @@ class CameraController;
 #define NETWORK_MODE_ROUTER "Router"
 #define NETWORK_MODE_DIRECT "Direct"
 #define NETWORK_MODE_STATIC "Static"
-#define SEND_STREAM_0       "Stream0"
-#define SEND_STREAM_1       "Stream1"
-#define AE_LOCK             "Lock"
-#define AE_UNLOCK           "Unlock"
-#define CONFIG_KEY_AUDIO_ENCODER  "primary_audio"
-#define CONFIG_KEY_AUDIO_CHANNEL  "audio_channel"
-#define CONFIG_KEY_AUDIO_IN_GAIN  "audio_input_gain"
+#define SEND_STREAM_0 "Stream0"
+#define SEND_STREAM_1 "Stream1"
+#define AE_LOCK "Lock"
+#define AE_UNLOCK "Unlock"
+#define CONFIG_KEY_AUDIO_ENCODER "primary_audio"
+#define CONFIG_KEY_AUDIO_CHANNEL "audio_channel"
+#define CONFIG_KEY_AUDIO_IN_GAIN "audio_input_gain"
 #define CONFIG_KEY_AUDIO_OUT_GAIN "audio_output_gain"
 #define CONFIG_KEY_AUDIO_PHANTOM_POWER "audio_phantom_power"
-#define CONFIG_KEY_TC_COUNT_UP    "tc_count_up"
-#define CONFIG_KEY_TC_HDMI        "tc_hdmi_dispaly"
-#define CONFIG_KEY_MOVVFR          "movvfr" 
-#define CONFIG_KEY_WDR             "compose_mode"
-#define CONFIG_KEY_DUAL_ISO	       "dual_iso"
+#define CONFIG_KEY_TC_COUNT_UP "tc_count_up"
+#define CONFIG_KEY_TC_HDMI "tc_hdmi_dispaly"
+#define CONFIG_KEY_MOVVFR "movvfr"
+#define CONFIG_KEY_WDR "compose_mode"
+#define CONFIG_KEY_DUAL_ISO "dual_iso"
 #define CONFIG_KEY_RECORD_FILE_FORMAT "record_file_format"
-#define CONFIG_KEY_REC_PROXY        "rec_proxy_file"
-#define CONFIG_KEY_REC_FPS          "rec_fps"
-#define CONFIG_KEY_WIFI          "wifi"
+#define CONFIG_KEY_REC_PROXY "rec_proxy_file"
+#define CONFIG_KEY_REC_FPS "rec_fps"
+#define CONFIG_KEY_WIFI "wifi"
 
-#define CAMERA_CONFIG_MOVIE_FORMAT      0
-#define CAMERA_CONFIG_PHOTO_SIZE        1
-#define CAMERA_CONFIG_WB                2
-#define CAMERA_CONFIG_ISO               3
-#define CAMERA_CONFIG_SHARPNESS         4
-#define CAMERA_CONFIG_CONTRAST          5
-#define CAMERA_CONFIG_AE_METER_MODE     6
+#define CAMERA_CONFIG_MOVIE_FORMAT 0
+#define CAMERA_CONFIG_PHOTO_SIZE 1
+#define CAMERA_CONFIG_WB 2
+#define CAMERA_CONFIG_ISO 3
+#define CAMERA_CONFIG_SHARPNESS 4
+#define CAMERA_CONFIG_CONTRAST 5
+#define CAMERA_CONFIG_AE_METER_MODE 6
 
-#define SAVE_IP_DEPARATOR       "-"
+#define SAVE_IP_DEPARATOR "-"
 #define DOWNLOAD_THREAD_POOL_MAX_DEFAULT_SIZE 2
 
-#define HTTP_DEFAULT_PORT  80
+#define HTTP_DEFAULT_PORT 80
 
 #define HEART_BEAT_INTERVAL (1000 * 5)
 
-#define SET_CONFIG_DELAY_TIME  1000
-
+#define SET_CONFIG_DELAY_TIME 1000
 
 enum RequestType {
-    REQUEST_TYPE_CODE,
-    REQUEST_TYPE_MESSAGE,
-    REQUEST_TYPE_CONFIG,
-    REQUEST_TYPE_INFO,
-    REQUEST_TYPE_FILES,
-    REQUEST_TYPE_MEDIA_INFO,
-    REQUEST_TYPE_NETINFO,
+	REQUEST_TYPE_CODE,
+	REQUEST_TYPE_MESSAGE,
+	REQUEST_TYPE_CONFIG,
+	REQUEST_TYPE_INFO,
+	REQUEST_TYPE_FILES,
+	REQUEST_TYPE_MEDIA_INFO,
+	REQUEST_TYPE_NETINFO,
 	REQUEST_TYPE_STREAM_INFO
 };
 
 enum ConfigType {
-    CONFIG_TYPE_CHOICE = 1,
-    CONFIG_TYPE_RANGE,
-    CONFIG_TYPE_STRING
+	CONFIG_TYPE_CHOICE = 1,
+	CONFIG_TYPE_RANGE,
+	CONFIG_TYPE_STRING
 };
 
-
 struct CameraConfigInfo {
-    int code;
-    int min;
-    int max;
-    int step;
-    int intValue;
-    bool readOnly;
-    QString msg;
-    QString key;
-    QString currentValue;
-    ConfigType type;
-    QList<QString> choices;
+	int code;
+	int min;
+	int max;
+	int step;
+	int intValue;
+	bool readOnly;
+	QString msg;
+	QString key;
+	QString currentValue;
+	ConfigType type;
+	QList<QString> choices;
 };
 
 struct StreamInfo {
@@ -250,69 +248,62 @@ struct StreamInfo {
 	QString status_;
 };
 struct HttpResponse {
- 	struct StreamInfo streamInfo;
+	struct StreamInfo streamInfo;
 
-    //Config type
-    int intValue;
-    int min;
-    int max;
-    int step;
-    int code;
-    int statusCode;
-    bool readOnly;
-    ConfigType type;
-    RequestType reqType;
-    QString reqKey;
-    QString reqValue;
-    QString key;
-    QString msg;
-    QString shortPath;
-    QString currentValue;
-    QList<QString> choices;
-    QList<QString> files;
-    QNetworkReply::NetworkError responseError;
+	//Config type
+	int intValue;
+	int min;
+	int max;
+	int step;
+	int code;
+	int statusCode;
+	bool readOnly;
+	ConfigType type;
+	RequestType reqType;
+	QString reqKey;
+	QString reqValue;
+	QString key;
+	QString msg;
+	QString shortPath;
+	QString currentValue;
+	QList<QString> choices;
+	QList<QString> files;
+	QNetworkReply::NetworkError responseError;
 };
 
 typedef std::function<void(struct HttpResponse *rsp)> OnRequestCallback;
 
 struct HttpRequest {
-    bool useShortPath;
-    int timeout;
-    QString key;
-    QString value;
-    QString shortPath;
-    QString fullPath;
-    RequestType reqType;
-    OnRequestCallback callback;
+	bool useShortPath;
+	int timeout;
+	QString key;
+	QString value;
+	QString shortPath;
+	QString fullPath;
+	RequestType reqType;
+	OnRequestCallback callback;
 };
 
 typedef struct {
-    QString name;
-    QString sn;
-    QString inputFmt;
-    QString outputFmt;
-    QString time;
-    QStringList configs;
-}SBOConfig;
+	QString name;
+	QString sn;
+	QString inputFmt;
+	QString outputFmt;
+	QString time;
+	QStringList configs;
+} SBOConfig;
 
 class CameraConfig {
 public:
-    static ConfigType getConfigType(const QString &key);
-    static void parseForConfig(const QJsonObject &json, struct HttpResponse *response);
-    static void parseForCommon(const QJsonObject &json, struct HttpResponse *response);
-	static void parseForStreamInfo(const QJsonObject &json, struct HttpResponse *response);
-    CameraConfig();
-    ~CameraConfig();
+	static ConfigType getConfigType(const QString &key);
+	static void parseForConfig(const QJsonObject &json,
+				   struct HttpResponse *response);
+	static void parseForCommon(const QJsonObject &json,
+				   struct HttpResponse *response);
+	static void parseForStreamInfo(const QJsonObject &json,
+				       struct HttpResponse *response);
+	CameraConfig();
+	~CameraConfig();
 };
 
 #endif // CAMERACONFIG_H
-
-
-
-
-
-
-
-
-
-
