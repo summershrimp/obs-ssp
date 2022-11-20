@@ -39,23 +39,22 @@
 
 #include "cameraconfig.h"
 
+#define URL_INFO "/info"
+#define URL_CTRL_GET "/ctrl/get"
+#define URL_CTRL_SET "/ctrl/set"
+#define URL_CTRL_STREAM "/ctrl/primary_stream"
+#define URL_CTRL_STREAM_SETTING "/ctrl/stream_setting"
+#define URL_CTRL_SESSION "/ctrl/session"
 
-#define URL_INFO                    "/info"
-#define URL_CTRL_GET                "/ctrl/get"
-#define URL_CTRL_SET                "/ctrl/set"
-#define URL_CTRL_STREAM             "/ctrl/primary_stream"
-#define URL_CTRL_STREAM_SETTING     "/ctrl/stream_setting"
-#define URL_CTRL_SESSION            "/ctrl/session"
+#define HTTP_REQUEST_KEY_INVALID "invalid"
 
-#define HTTP_REQUEST_KEY_INVALID        "invalid"
+#define HTTP_SHORT_TIMEOUT 3 * 1000
+#define HTTP_NORMAL_TIMEOUT 5 * 1000
+#define HTTP_COMMAND_TIMEOUT 3 * 1000
+#define HTTP_LONG_TIMEOUT 8 * 1000
+#define HTTP_GET_MODE_LONG_TIMEOUT 20 * 1000
 
-#define HTTP_SHORT_TIMEOUT          3 * 1000
-#define HTTP_NORMAL_TIMEOUT         5 * 1000
-#define HTTP_COMMAND_TIMEOUT        3 * 1000
-#define HTTP_LONG_TIMEOUT           8 * 1000
-#define HTTP_GET_MODE_LONG_TIMEOUT  20 * 1000
-
-#define SESSION_HEARTBEAT_FAIL_TIME     2
+#define SESSION_HEARTBEAT_FAIL_TIME 2
 
 class CameraConfig;
 class QTimer;
@@ -65,56 +64,69 @@ class QBuffer;
 class QTcpSocket;
 
 class CameraController : public QObject {
-    Q_OBJECT
+	Q_OBJECT
 public:
-    explicit CameraController(QObject *parent = 0);
-    ~CameraController();
+	explicit CameraController(QObject *parent = 0);
+	~CameraController();
 
+	void getCameraConfig(const QString &key, int timeout,
+			     OnRequestCallback callback);
+	void getCameraConfig(const QString &key, OnRequestCallback callback);
+	void setCameraConfig(const QString &key, const QString &value,
+			     OnRequestCallback callback);
+	void getInfo(OnRequestCallback callback);
 
-    void getCameraConfig(const QString &key, int timeout, OnRequestCallback callback);
-    void getCameraConfig(const QString &key, OnRequestCallback callback);
-    void setCameraConfig(const QString &key, const QString &value, OnRequestCallback callback);
-    void getInfo(OnRequestCallback callback);
+	void requestForCode(const QString &shortPath, int timeout,
+			    OnRequestCallback callback);
+	void requestForCode(const QString &shortPath,
+			    OnRequestCallback callback);
 
-    void requestForCode(const QString &shortPath, int timeout, OnRequestCallback callback);
-    void requestForCode(const QString &shortPath, OnRequestCallback callback);
-
-    void setSendStream(const QString &value, OnRequestCallback callback);
-    void setStreamBitrate(const QString &index, const QString &bitrate, OnRequestCallback callback);
-	void setStreamBitrateAndGop(const QString &index, const QString &bitrate, const QString &gop, OnRequestCallback callback);
-	void setStreamResolution(const QString &index, const QString &width, const QString& height, OnRequestCallback callback);
-	void setStreamFPS(const QString &index, const QString& fps, OnRequestCallback callback);
-	void setStreamCodec(const QString &index, const QString &codec, OnRequestCallback callback);
-	void setStreamGop(const QString &index, const QString &gop, OnRequestCallback callback);
-	void setStreamBitwidth(const QString &index, const QString &bitwidth, OnRequestCallback callback);
+	void setSendStream(const QString &value, OnRequestCallback callback);
+	void setStreamBitrate(const QString &index, const QString &bitrate,
+			      OnRequestCallback callback);
+	void setStreamBitrateAndGop(const QString &index,
+				    const QString &bitrate, const QString &gop,
+				    OnRequestCallback callback);
+	void setStreamResolution(const QString &index, const QString &width,
+				 const QString &height,
+				 OnRequestCallback callback);
+	void setStreamFPS(const QString &index, const QString &fps,
+			  OnRequestCallback callback);
+	void setStreamCodec(const QString &index, const QString &codec,
+			    OnRequestCallback callback);
+	void setStreamGop(const QString &index, const QString &gop,
+			  OnRequestCallback callback);
+	void setStreamBitwidth(const QString &index, const QString &bitwidth,
+			       OnRequestCallback callback);
 	void getStreamInfo(const QString &index, OnRequestCallback callback);
-    void setIp(const QString &ip);
+	void setIp(const QString &ip);
 
-    void clearConnectionStatus();
-    void cancelCurrentReq();
-    void cancelAllReqs();
-    void cancelReqs(QStringList keys);
-    void resetNetwork();
-    QString ip() const { return ip_; }
+	void clearConnectionStatus();
+	void cancelCurrentReq();
+	void cancelAllReqs();
+	void cancelReqs(QStringList keys);
+	void resetNetwork();
+	QString ip() const { return ip_; }
 
-    private slots:
-    void handleReqeustResult();
+private slots:
+	void handleReqeustResult();
 
 private:
-    void handleRequestResult(HttpRequest *req, QNetworkReply *reply);
-    //Http request
-    void nextRequest();
-    void nextRequest(HttpRequest *req);
-    void commonRequest(struct HttpRequest *req);
-    void parseResponse(const QByteArray &byteData, struct HttpResponse *rsp, RequestType reqType);
-    QString buildRequestPath(const QString &shortPath, const QString &ip, bool useShortPath);
+	void handleRequestResult(HttpRequest *req, QNetworkReply *reply);
+	//Http request
+	void nextRequest();
+	void nextRequest(HttpRequest *req);
+	void commonRequest(struct HttpRequest *req);
+	void parseResponse(const QByteArray &byteData, struct HttpResponse *rsp,
+			   RequestType reqType);
+	QString buildRequestPath(const QString &shortPath, const QString &ip,
+				 bool useShortPath);
 
-    QString ip_;
-    bool requesting_;
-    QNetworkReply *reply_;
-    QNetworkAccessManager *networkManager_;
-    QQueue<struct HttpRequest*> *httpRequestQueue_;
-
+	QString ip_;
+	bool requesting_;
+	QNetworkReply *reply_;
+	QNetworkAccessManager *networkManager_;
+	QQueue<struct HttpRequest *> *httpRequestQueue_;
 };
 
 #endif // CAMERACONTROLLER_H

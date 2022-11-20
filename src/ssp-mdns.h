@@ -24,34 +24,31 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <map>
 
 struct ssp_device_item {
-    std::string device_name;
-    std::string ip_address;
+	std::string device_name;
+	std::string ip_address;
 };
-
 
 struct mdns_record {
-    bool has_ptr;
-    std::string ptr_record;
-    bool has_a;
-    sockaddr_in a_record;
-    bool has_aaaa;
-    sockaddr_in6 aaaa_record;
-    uint64_t last_available;
+	bool has_ptr;
+	std::string ptr_record;
+	bool has_a;
+	sockaddr_in a_record;
+	bool has_aaaa;
+	sockaddr_in6 aaaa_record;
+	uint64_t last_available;
 };
 
-
-class SspMDnsIterator{
+class SspMDnsIterator {
 public:
-    SspMDnsIterator();
-    ~SspMDnsIterator();
-    bool hasNext();
-    ssp_device_item* next();
+	SspMDnsIterator();
+	~SspMDnsIterator();
+	bool hasNext();
+	ssp_device_item *next();
 
 private:
-    uint64_t current_time;
-    std::map<std::string, mdns_record>::const_iterator iter;
+	uint64_t current_time;
+	std::map<std::string, mdns_record>::const_iterator iter;
 };
-
 
 void create_mdns_loop();
 void stop_mdns_loop();
