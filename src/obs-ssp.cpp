@@ -25,9 +25,14 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <util/platform.h>
 #include <util/dstr.h>
-
+#include <QDir>
 #include "obs-ssp.h"
 #include "ssp-controller.h"
+
+#if defined(__APPLE__)
+
+#include <dlfcn.h>
+#endif
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Yibai Zhang")
@@ -42,8 +47,16 @@ create_loop_class_ptr create_loop_class;
 bool obs_module_load(void)
 {
     ssp_blog(LOG_INFO, "hello ! (obs-ssp version %s) size: %lu", PLUGIN_VERSION, sizeof(ssp_source_info));
-    void *ssp_handle = os_dlopen(LIBSSP_LIBRARY_NAME);
+#if defined(__APPLE__)
+	Dl_info info;
+	dladdr((const void *)obs_module_load, &info);
+	blog(LOG_INFO, "path: %s", info.dli_fname);
+	QFileInfo plugin_path(info.dli_fname);
 
+    void *ssp_handle = os_dlopen(plugin_path.dir().filePath(QStringLiteral(LIBSSP_LIBRARY_NAME)).toStdString().c_str());
+#else
+    void *ssp_handle = os_dlopen(LIBSSP_LIBRARY_NAME);
+#endif
     if(!ssp_handle){
         ssp_blog(LOG_WARNING, "Load %s failed.", LIBSSP_LIBRARY_NAME);
         return false;
