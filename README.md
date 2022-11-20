@@ -15,9 +15,9 @@ Binaries for Windows, and macOS are available in the [Releases](https://github.c
 
 ## Users group
 
-Telegram: https://t.me/joinchat/BbK1thHn4aNXH319h61Spw
+Discord(English only): https://discord.gg/uFpTbh3AVC
 
-QQ:
+QQ(Chinese only):
 
 ![QQ](./images/qq-group.png)
 

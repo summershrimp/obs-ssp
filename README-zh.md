@@ -13,9 +13,9 @@ Network A/V in OBS Studio with Simple Stream Protocol(SSP).
 
 ## 交流群
 
-Telegram: https://t.me/joinchat/BbK1thHn4aNXH319h61Spw
+Discord(仅英文): https://discord.gg/uFpTbh3AVC
 
-QQ:
+QQ(仅中文):
 
 ![QQ](./images/qq-group.png)
 
