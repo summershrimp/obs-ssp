@@ -36,6 +36,20 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "obs-ssp.h"
 #include "ssp-client-iso.h"
 
+static size_t os_process_pipe_read_retry(os_process_pipe *pipe, uint8_t *dst,
+					 size_t size)
+{
+	size_t pos = 0, cur = 0;
+	while (pos < size) {
+		cur = os_process_pipe_read(pipe, dst + pos, size - pos);
+		if (!cur) {
+			break;
+		}
+		pos += cur;
+	}
+	return pos;
+}
+
 static Message *msg_recv(os_process_pipe *pipe)
 {
 	size_t sz = 0;
@@ -43,8 +57,10 @@ static Message *msg_recv(os_process_pipe *pipe)
 	if (!msg) {
 		return nullptr;
 	}
-	sz = os_process_pipe_read(pipe, (uint8_t *)msg, sizeof(Message));
+	sz = os_process_pipe_read_retry(pipe, (uint8_t *)msg, sizeof(Message));
 	if (sz != sizeof(Message)) {
+		ssp_blog(LOG_WARNING, "pipe protocol header error, recv: %d!",
+			 sz);
 		bfree(msg);
 		return nullptr;
 	}
@@ -55,8 +71,11 @@ static Message *msg_recv(os_process_pipe *pipe)
 	msg_all = (Message *)bmalloc(sizeof(Message) + msg->length);
 	memcpy(msg_all, msg, sizeof(Message));
 	bfree(msg);
-	sz = os_process_pipe_read(pipe, msg_all->value, msg_all->length);
+	//ssp_blog(LOG_INFO, "receive msg type: %d, size: %d", msg_all->type, msg_all->length);
+	sz = os_process_pipe_read_retry(pipe, msg_all->value, msg_all->length);
 	if (sz != msg_all->length) {
+		ssp_blog(LOG_WARNING, "pipe protocol body error, recv: %d!",
+			 sz);
 		bfree(msg_all);
 		return nullptr;
 	}
@@ -70,11 +89,29 @@ static void msg_free(Message *msg)
 	}
 }
 
+static void *dump_stderr(os_process_pipe *pipe)
+{
+	size_t sz;
+	char buf[1024];
+	while (true) {
+		sz = os_process_pipe_read_err(pipe, (uint8_t *)buf,
+					      sizeof(buf) - 1);
+		if (sz == 0) {
+			break;
+		}
+		buf[sz] = '\0';
+		ssp_blog(LOG_INFO, "%s", buf);
+	}
+	ssp_blog(LOG_INFO, "read thread exited");
+	return nullptr;
+}
+
 SSPClientIso::SSPClientIso(const std::string &ip, uint32_t bufferSize)
 {
 	this->ip = ip;
 	this->bufferSize = bufferSize;
 	this->running = false;
+	this->pipe = nullptr;
 
 #if defined(__APPLE__)
 	Dl_info info;
@@ -104,43 +141,48 @@ void SSPClientIso::doStart()
 	dstr_cat(&cmd, " --port ");
 	dstr_cat(&cmd, "9999");
 
-	this->pipe = os_process_pipe_create(cmd.array, "r");
+	auto tpipe = os_process_pipe_create(cmd.array, "r");
 	blog(LOG_INFO, "Start ssp-connector at: %s", cmd.array);
 	dstr_free(&cmd);
 
-	if (!this->pipe) {
+	if (!tpipe) {
 		blog(LOG_WARNING, "Start ssp-connector failed.");
 		return;
 	}
+	this->statusLock.lock();
 	this->running = true;
+	this->pipe = tpipe;
 
-	pthread_t thread;
-	pthread_create(&thread, nullptr, SSPClientIso::ReceiveThread, this);
-	pthread_detach(thread);
+	this->worker = std::thread(SSPClientIso::ReceiveThread, this);
+	this->statusLock.unlock();
 }
 
 void *SSPClientIso::ReceiveThread(void *arg)
 {
 	auto th = (SSPClientIso *)arg;
 	Message *msg;
+	th->statusLock.lock();
+	auto pipe = th->pipe;
+	th->statusLock.unlock();
 
-	msg = msg_recv(th->pipe);
+#ifdef _WIN32
+	std::thread(dump_stderr, pipe).detach();
+#endif
+
+	msg = msg_recv(pipe);
 	if (!msg) {
 		blog(LOG_WARNING, "Receive error !");
-		th->running = false;
 		return nullptr;
 	}
 	if (msg->type != MessageType::ConnectorOkMsg) {
 		blog(LOG_WARNING, "Protocol error !");
-		th->Stop();
 		return nullptr;
 	}
 
 	while (th->running) {
-		msg = msg_recv(th->pipe);
+		msg = msg_recv(pipe);
 		if (!msg) {
 			blog(LOG_WARNING, "Receive error !");
-			th->Stop();
 			break;
 		}
 
@@ -168,12 +210,12 @@ void *SSPClientIso::ReceiveThread(void *arg)
 			break;
 		default:
 			blog(LOG_WARNING, "Protocol error !");
-			th->Stop();
 			break;
 		}
 
 		msg_free(msg);
 	}
+
 	return nullptr;
 }
 
@@ -186,8 +228,16 @@ void SSPClientIso::Restart()
 void SSPClientIso::Stop()
 {
 	blog(LOG_INFO, "ssp client stopping...");
+	this->statusLock.lock();
 	this->running = false;
-	os_process_pipe_destroy(this->pipe);
+	if (this->worker.joinable()) {
+		this->worker.join();
+	}
+	if (this->pipe) {
+		os_process_pipe_destroy(this->pipe);
+		this->pipe = nullptr;
+	}
+	this->statusLock.unlock();
 }
 
 void SSPClientIso::OnRecvBufferFull()

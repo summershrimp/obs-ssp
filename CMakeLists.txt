@@ -30,7 +30,6 @@ set(obs-ssp_SOURCES
     src/ssp-mdns.cpp
     src/ssp-controller.cpp
     src/VFrameQueue.cpp
-    src/ssp-client.cpp
     src/ssp-client-iso.cpp)
 
 set(obs-ssp_HEADERS src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h
@@ -119,6 +118,6 @@ if(OS_MACOS)
   install(TARGETS ssp-connector DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/MacOS")
   install(FILES ${LIBSSP_LIBRARY} DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/Frameworks")
 elseif(OS_WINDOWS)
-  install(TARGETS ssp-connector DESTINATION "${OBS_LIBRARY_DESTINATION}")
-  install(FILES ${LIBSSP_LIBRARY} DESTINATION "${OBS_LIBRARY_DESTINATION}")
+  install(TARGETS ssp-connector DESTINATION "${OBS_PLUGIN_DESTINATION}")
+  install(FILES ${LIBSSP_LIBRARY} DESTINATION "${OBS_PLUGIN_DESTINATION}")
 endif()

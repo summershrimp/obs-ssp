@@ -103,7 +103,15 @@ struct ssp_connection {
 	bool running;
 	int i_frame_shown;
 
-	ssp_source *source;
+	// copy from ssp_source
+	char *source_ip;
+	int hwaccel;
+	int bitrate;
+	int wait_i_frame;
+	int sync_mode;
+	obs_source_t *source;
+	// not used
+	int video_range;
 
 	pthread_mutex_t lck;
 };
@@ -153,14 +161,14 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 	if (!ffmpeg_decode_valid(&s->vdecoder)) {
 		assert(s->vformat == AV_CODEC_ID_H264 ||
 		       s->vformat == AV_CODEC_ID_HEVC);
-		if (ffmpeg_decode_init(&s->vdecoder, s->vformat,
-				       s->source->hwaccel) < 0) {
+		if (ffmpeg_decode_init(&s->vdecoder, s->vformat, s->hwaccel) <
+		    0) {
 			ssp_blog(LOG_WARNING,
 				 "Could not initialize video decoder");
 			return;
 		}
 	}
-	if (s->source->wait_i_frame && !s->i_frame_shown) {
+	if (s->wait_i_frame && !s->i_frame_shown) {
 		if (video->type == 5) {
 			s->i_frame_shown = true;
 		} else {
@@ -179,14 +187,14 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 	}
 
 	if (got_output) {
-		if (s->source->sync_mode == PROP_SYNC_INTERNAL) {
+		if (s->sync_mode == PROP_SYNC_INTERNAL) {
 			s->frame.timestamp = os_gettime_ns();
 		} else {
 			s->frame.timestamp = (uint64_t)video->pts * 1000;
 		}
 		//        if (flip)
 		//            frame.flip = !frame.flip;
-		obs_source_output_video2(s->source->source, &s->frame);
+		obs_source_output_video2(s->source, &s->frame);
 	}
 }
 
@@ -214,7 +222,7 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio,
 			return;
 		}
 		if (got_output) {
-			if (s->source->sync_mode == PROP_SYNC_INTERNAL) {
+			if (s->sync_mode == PROP_SYNC_INTERNAL) {
 				s->audio.timestamp = os_gettime_ns();
 				s->audio.timestamp +=
 					((uint64_t)s->audio.samples_per_sec *
@@ -224,7 +232,7 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio,
 				s->audio.timestamp =
 					(uint64_t)audio->pts * 1000;
 			}
-			obs_source_output_audio(s->source->source, &s->audio);
+			obs_source_output_audio(s->source, &s->audio);
 		} else {
 			break;
 		}
@@ -283,11 +291,16 @@ static void ssp_on_exception(int code, const char *description,
 static void ssp_start(ssp_source *s)
 {
 	auto conn = (ssp_connection *)bzalloc(sizeof(ssp_connection));
-	conn->source = (ssp_source *)bzalloc(sizeof(ssp_source));
-	memcpy(conn->source, s, sizeof(ssp_source));
-	conn->source->source_ip = strdup(s->source_ip);
-	s->conn = conn;
+	conn->source = s->source;
+	conn->source_ip = strdup(s->source_ip);
+	conn->wait_i_frame = s->wait_i_frame;
+	conn->hwaccel = s->hwaccel;
+	conn->bitrate = s->bitrate;
+	conn->sync_mode = s->sync_mode;
+	conn->video_range = s->video_range;
 	pthread_mutex_init(&conn->lck, nullptr);
+
+	s->conn = conn;
 	ssp_conn_start(conn);
 }
 
@@ -332,8 +345,7 @@ static void ssp_stop(ssp_source *s)
 		return;
 	}
 	ssp_conn_stop(conn);
-	free((void *)conn->source->source_ip);
-	bfree(conn->source);
+	free((void *)conn->source_ip);
 	bfree(conn);
 }
 
@@ -343,14 +355,14 @@ static void ssp_conn_start(ssp_connection *s)
 	assert(s->client == nullptr);
 	assert(s->source != nullptr);
 
-	std::string ip = s->source->source_ip;
-	ssp_blog(LOG_INFO, "target ip: %s", s->source->source_ip);
-	ssp_blog(LOG_INFO, "source bitrate: %d", s->source->bitrate);
-	if (strlen(s->source->source_ip) == 0) {
+	std::string ip = s->source_ip;
+	ssp_blog(LOG_INFO, "target ip: %s", s->source_ip);
+	ssp_blog(LOG_INFO, "source bitrate: %d", s->bitrate);
+	if (strlen(s->source_ip) == 0) {
 		return;
 	}
 	pthread_mutex_lock(&s->lck);
-	s->client = new SSPClientIso(ip, s->source->bitrate / 8);
+	s->client = new SSPClientIso(ip, s->bitrate / 8);
 	s->client->setOnH264DataCallback(
 		std::bind(ssp_video_data_enqueue, _1, s));
 	s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
@@ -409,14 +421,14 @@ void *thread_ssp_reconnect(void *data)
 	assert(conn->client == nullptr);
 	assert(conn->source != nullptr);
 
-	std::string ip = conn->source->source_ip;
-	ssp_blog(LOG_INFO, "target ip: %s", conn->source->source_ip);
-	ssp_blog(LOG_INFO, "source bitrate: %d", conn->source->bitrate);
-	if (strlen(conn->source->source_ip) == 0) {
+	std::string ip = conn->source_ip;
+	ssp_blog(LOG_INFO, "target ip: %s", conn->source_ip);
+	ssp_blog(LOG_INFO, "source bitrate: %d", conn->bitrate);
+	if (strlen(conn->source_ip) == 0) {
 		pthread_mutex_unlock(&conn->lck);
 		return nullptr;
 	}
-	conn->client = new SSPClientIso(ip, conn->source->bitrate / 8);
+	conn->client = new SSPClientIso(ip, conn->bitrate / 8);
 	conn->client->setOnH264DataCallback(
 		std::bind(ssp_video_data_enqueue, _1, conn));
 	conn->client->setOnAudioDataCallback(
