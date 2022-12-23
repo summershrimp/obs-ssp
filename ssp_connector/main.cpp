@@ -31,6 +31,11 @@
 #include <stdlib.h>
 #include <string>
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #include <imf/ssp/sspclient.h>
 #include <imf/net/threadloop.h>
 
@@ -41,13 +46,14 @@ char address[256] = {0};
 unsigned int port = 0;
 char uuid[64] = {0};
 
-uintptr_t pipefd = 0;
-
 imf::SspClient *gSspClient = nullptr;
 imf::Loop *gLoop = nullptr;
 
 int msg_write(char *buf, size_t size)
 {
+	Message *msg = (Message *)buf;
+	size_t writed = 0, cur = 0;
+	//log_conn("send msg type: %d, size %d", msg->type, msg->length);
 	return fwrite(buf, 1, size, stdout);
 }
 
@@ -84,7 +90,8 @@ int process_args(int argc, char **argv)
 
 void print_usage(void)
 {
-	puts("Usage: ssp_connector --host host --port port --uuid uuid");
+	fprintf(stderr,
+		"Usage: ssp_connector --host host --port port [--uuid uuid]");
 }
 
 static void on_general_message(MessageType type)
@@ -172,7 +179,7 @@ static void on_meta(imf::SspVideoMeta *vmeta, struct imf::SspAudioMeta *ameta,
 	int sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
-		log_conn("stopped.");
+		log_conn("stopped sz != len %d != %d.", sz, len);
 		gSspClient->stop();
 		gLoop->quit();
 	}
@@ -191,10 +198,10 @@ static void on_exception(int code, const char *description)
 	int sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
-		log_conn("stopped.");
-		gSspClient->stop();
-		gLoop->quit();
+		log_conn("exception error.");
 	}
+	gSspClient->stop();
+	gLoop->quit();
 }
 
 static void setup(imf::Loop *loop)
@@ -211,8 +218,11 @@ static void setup(imf::Loop *loop)
 		std::bind(on_general_message, ConnectionConnectedMsg));
 	client->setOnRecvBufferFullCallback(
 		std::bind(on_general_message, RecvBufferFullMsg));
-	client->setOnDisconnectedCallback(
-		std::bind(on_general_message, ExceptionMsg));
+	client->setOnDisconnectedCallback([=]() {
+		on_general_message(DisconnectMsg);
+		client->stop();
+		loop->quit();
+	});
 	client->start();
 
 	Message msg;
@@ -229,12 +239,16 @@ static void setup(imf::Loop *loop)
 
 int main(int argc, char **argv)
 {
-	setbuf(stdout, nullptr); // unbuffered stdout
 	int ret = process_args(argc, argv);
 	if (ret) {
 		print_usage();
 		return -1;
 	}
+#ifdef _WIN32
+	_setmode(_fileno(stdout), O_BINARY);
+#endif
+	setbuf(stdout, nullptr); // unbuffered stdout
+
 	log_conn("host: %s\nport: %d\nuuid: %s\n", address, port, uuid);
 	auto loop = new imf::Loop();
 	loop->init();

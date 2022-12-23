@@ -21,6 +21,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <QObject>
 #include <QProcess>
 #include <mutex>
+#include <thread>
 
 #include <imf/ISspClient.h>
 extern "C" {
@@ -68,14 +69,15 @@ private:
 	virtual void OnConnectionConnected();
 	virtual void OnException(Message *exception);
 
-	std::mutex implLock;
-	std::mutex loopLock;
+	std::mutex statusLock;
 	bool running;
 	std::string ip;
 	uint32_t bufferSize;
 	QString ssp_connector_path;
 
 	os_process_pipe_t *pipe;
+
+	std::thread worker;
 
 	imf::OnRecvBufferFullCallback bufferFullCallback;
 	imf::OnH264DataCallback h264DataCallback;

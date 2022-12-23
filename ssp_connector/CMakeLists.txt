@@ -14,7 +14,7 @@ if(NOT libssp_POPULATED)
     target_link_libraries(
       libssp INTERFACE "${libssp_SOURCE_DIR}/lib/win_x64_vs2017/libssp$<$<CONFIG:Debug>:d>.lib")
     set(LIBSSP_LIBRARY
-        "${libssp_SOURCE_DIR}/lib/win_x64_vs2017/libssp$<$<CONFIG:Debug>:d>.lib"
+        "${libssp_SOURCE_DIR}/lib/win_x64_vs2017/libssp$<$<CONFIG:Debug>:d>.dll"
         PARENT_SCOPE)
   elseif(OS_MACOS)
     target_link_libraries(libssp INTERFACE ${libssp_SOURCE_DIR}/lib/mac/libssp.dylib)

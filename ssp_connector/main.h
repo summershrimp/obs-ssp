@@ -28,3 +28,5 @@
 
 #define log_conn(fmt, ...) \
 	fprintf(stderr, "%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+
+// #define log_conn(fmt, ...) (void *)0;
