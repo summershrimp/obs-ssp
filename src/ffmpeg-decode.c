@@ -18,6 +18,9 @@
 #include "ffmpeg-decode.h"
 #include "obs-ffmpeg-compat.h"
 #include <obs-avc.h>
+#ifdef ENABLE_HEVC
+#include <obs-hevc.h>
+#endif
 
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 4, 100)
 #define USE_NEW_HARDWARE_CODEC_METHOD
@@ -125,8 +128,10 @@ int ffmpeg_decode_init(struct ffmpeg_decode *decode, enum AVCodecID id,
 		return ret;
 	}
 
+#if LIBAVCODEC_VERSION_MAJOR < 60
 	if (decode->codec->capabilities & CODEC_CAP_TRUNC)
 		decode->decoder->flags |= CODEC_FLAG_TRUNC;
+#endif
 
 	return 0;
 }
@@ -162,6 +167,8 @@ static inline enum video_format convert_pixel_format(int f)
 		return VIDEO_FORMAT_NV12;
 	case AV_PIX_FMT_YUYV422:
 		return VIDEO_FORMAT_YUY2;
+	case AV_PIX_FMT_YVYU422:
+		return VIDEO_FORMAT_YVYU;
 	case AV_PIX_FMT_UYVY422:
 		return VIDEO_FORMAT_UYVY;
 	case AV_PIX_FMT_YUV422P:
@@ -171,8 +178,12 @@ static inline enum video_format convert_pixel_format(int f)
 		return VIDEO_FORMAT_RGBA;
 	case AV_PIX_FMT_BGRA:
 		return VIDEO_FORMAT_BGRA;
+	case AV_PIX_FMT_YUV420P10LE:
+		return VIDEO_FORMAT_I010;
 	case AV_PIX_FMT_BGR0:
 		return VIDEO_FORMAT_BGRX;
+	case AV_PIX_FMT_P010LE:
+		return VIDEO_FORMAT_P010;
 	default:;
 	}
 
@@ -247,7 +258,6 @@ bool ffmpeg_decode_audio(struct ffmpeg_decode *decode, uint8_t *data,
 			 size_t size, struct obs_source_audio *audio,
 			 bool *got_output)
 {
-	AVPacket packet = {0};
 	int got_frame = false;
 	int ret = 0;
 
@@ -255,18 +265,21 @@ bool ffmpeg_decode_audio(struct ffmpeg_decode *decode, uint8_t *data,
 
 	copy_data(decode, data, size);
 
-	av_init_packet(&packet);
-	packet.data = decode->packet_buffer;
-	packet.size = (int)size;
-
 	if (!decode->frame) {
 		decode->frame = av_frame_alloc();
 		if (!decode->frame)
 			return false;
 	}
 
-	if (data && size)
-		ret = avcodec_send_packet(decode->decoder, &packet);
+	if (data && size) {
+		AVPacket *packet = av_packet_alloc();
+		packet->data = decode->packet_buffer;
+		packet->size = (int)size;
+
+		ret = avcodec_send_packet(decode->decoder, packet);
+
+		av_packet_free(&packet);
+	}
 	if (ret == 0)
 		ret = avcodec_receive_frame(decode->decoder, decode->frame);
 
@@ -298,7 +311,8 @@ bool ffmpeg_decode_audio(struct ffmpeg_decode *decode, uint8_t *data,
 }
 
 static enum video_colorspace
-convert_color_space(enum AVColorSpace s, enum AVColorTransferCharacteristic trc)
+convert_color_space(enum AVColorSpace s, enum AVColorTransferCharacteristic trc,
+		    enum AVColorPrimaries color_primaries)
 {
 	switch (s) {
 	case AVCOL_SPC_BT709:
@@ -309,17 +323,23 @@ convert_color_space(enum AVColorSpace s, enum AVColorTransferCharacteristic trc)
 	case AVCOL_SPC_SMPTE170M:
 	case AVCOL_SPC_SMPTE240M:
 		return VIDEO_CS_601;
+	case AVCOL_SPC_BT2020_NCL:
+		return (trc == AVCOL_TRC_ARIB_STD_B67) ? VIDEO_CS_2100_HLG
+						       : VIDEO_CS_2100_PQ;
 	default:
-		return VIDEO_CS_DEFAULT;
+		return (color_primaries == AVCOL_PRI_BT2020)
+			       ? ((trc == AVCOL_TRC_ARIB_STD_B67)
+					  ? VIDEO_CS_2100_HLG
+					  : VIDEO_CS_2100_PQ)
+			       : VIDEO_CS_DEFAULT;
 	}
 }
 
 bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
-			 size_t size, long long *ts,
+			 size_t size, long long *ts, enum video_colorspace cs,
 			 enum video_range_type range,
 			 struct obs_source_frame2 *frame, bool *got_output)
 {
-	AVPacket packet = {0};
 	int got_frame = false;
 
 	AVFrame *avframe = NULL, *sw_frame = NULL;
@@ -330,15 +350,6 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	*got_output = false;
 
 	copy_data(decode, data, size);
-
-	av_init_packet(&packet);
-	packet.data = decode->packet_buffer;
-	packet.size = (int)size;
-	packet.pts = *ts;
-
-	if (decode->codec->id == AV_CODEC_ID_H264 &&
-	    obs_avc_keyframe(data, size))
-		packet.flags |= AV_PKT_FLAG_KEY;
 
 	if (!decode->frame) {
 		decode->frame = av_frame_alloc();
@@ -356,7 +367,24 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	avframe = decode->hw_frame;
 	sw_frame = decode->frame;
 
-	ret = avcodec_send_packet(decode->decoder, &packet);
+	AVPacket *packet = av_packet_alloc();
+	packet->data = decode->packet_buffer;
+	packet->size = (int)size;
+	packet->pts = *ts;
+
+	switch (decode->codec->id) {
+	case AV_CODEC_ID_H264:
+		if (obs_avc_keyframe(data, size))
+			packet->flags |= AV_PKT_FLAG_KEY;
+#ifdef ENABLE_HEVC
+		break;
+	case AV_CODEC_ID_HEVC:
+		if (obs_hevc_keyframe(data, size))
+			packet->flags |= AV_PKT_FLAG_KEY;
+#endif
+	}
+
+	ret = avcodec_send_packet(decode->decoder, packet);
 	if (ret < 0) {
 		blog(LOG_INFO, "Error during decoding\n");
 		return false;
@@ -397,12 +425,15 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 				: VIDEO_RANGE_PARTIAL;
 	}
 
-	const enum video_colorspace cs = convert_color_space(
-		tmp_frame->colorspace, tmp_frame->color_trc);
+	if (cs == VIDEO_CS_DEFAULT) {
+		cs = convert_color_space(decode->frame->colorspace,
+					 decode->frame->color_trc,
+					 decode->frame->color_primaries);
+	}
 
-	const bool success = video_format_get_parameters(
-		cs, range, frame->color_matrix, frame->color_range_min,
-		frame->color_range_max);
+	const bool success = video_format_get_parameters_for_format(
+		cs, range, frame->format, frame->color_matrix,
+		frame->color_range_min, frame->color_range_max);
 	if (!success) {
 		blog(LOG_ERROR,
 		     "Failed to get video format "
@@ -418,6 +449,25 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	frame->width = tmp_frame->width;
 	frame->height = tmp_frame->height;
 	frame->flip = false;
+
+	switch (decode->frame->color_trc) {
+	case AVCOL_TRC_BT709:
+	case AVCOL_TRC_GAMMA22:
+	case AVCOL_TRC_GAMMA28:
+	case AVCOL_TRC_SMPTE170M:
+	case AVCOL_TRC_SMPTE240M:
+	case AVCOL_TRC_IEC61966_2_1:
+		frame->trc = VIDEO_TRC_SRGB;
+		break;
+	case AVCOL_TRC_SMPTE2084:
+		frame->trc = VIDEO_TRC_PQ;
+		break;
+	case AVCOL_TRC_ARIB_STD_B67:
+		frame->trc = VIDEO_TRC_HLG;
+		break;
+	default:
+		frame->trc = VIDEO_TRC_DEFAULT;
+	}
 
 	if (frame->format == VIDEO_FORMAT_NONE)
 		return false;
