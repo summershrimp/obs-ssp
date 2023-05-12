@@ -179,8 +179,9 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 	int64_t ts = video->pts;
 	bool got_output;
 	bool success = ffmpeg_decode_video(&s->vdecoder, video->data,
-					   video->len, &ts, VIDEO_RANGE_PARTIAL,
-					   &s->frame, &got_output);
+					   video->len, &ts, VIDEO_CS_DEFAULT,
+					   VIDEO_RANGE_PARTIAL, &s->frame,
+					   &got_output);
 	if (!success) {
 		ssp_blog(LOG_WARNING, "Error decoding video");
 		return;

@@ -4,7 +4,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules")
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
 # obs-myawesomeplugin) and set
-project(obs-ssp VERSION 0.9.5)
+project(obs-ssp VERSION 1.0.0)
 add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want to see as the
@@ -71,6 +71,7 @@ target_include_directories(
   ${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/lib/ssp/include
                                 ${CMAKE_SOURCE_DIR}/ssp_connector)
 
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_HEVC)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs FFmpeg::avcodec FFmpeg::avutil mdns)
 
 # --- End of section ---
