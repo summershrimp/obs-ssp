@@ -21,6 +21,13 @@ if(NOT libssp_POPULATED)
     set(LIBSSP_LIBRARY
         "${libssp_SOURCE_DIR}/lib/mac/libssp.dylib"
         PARENT_SCOPE)
+    set(_COMMAND
+        "/usr/bin/codesign --force \\
+        --sign \"${CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY}\" \
+        --options runtime \
+        --entitlements \"${CMAKE_CURRENT_LIST_DIR}/../cmake/bundle/macOS/entitlements.plist\" \
+        \"${libssp_SOURCE_DIR}/lib/mac/libssp.dylib\"")
+    execute_process(COMMAND /bin/sh -c "${_COMMAND}")
   endif()
 endif()
 

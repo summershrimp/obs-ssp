@@ -1,86 +1,57 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "29.0.0",
-            "repository": "https://github.com/obsproject/obs-studio.git",
-            "branch": "29.0.0",
-            "hash": "b51773b97b551cb409603146a97b2827d2a66ec3"
-        },
-        "prebuilt": {
-            "version": "2023-05-07",
-            "baseUrl": "https://github.com/summershrimp/obs-deps/releases/download",
-            "label": "Pre-built obs-deps",
+            "version": "30.0.2",
+            "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
+            "label": "OBS sources",
             "hashes": {
-                "macos-x86_64": "e6eb65cbf35ab839d029682b199c6ce11a359df18138b1f2ba372db6aabe9e17",
-                "macos-arm64": "4655c8c21301c185c18ffceceec0541ba6805b96660d575d9e4f3d962a07ccb1",
-                "macos-universal": "e041f6d4ce0e4632a13ec8d25a35953405d52d9a5b0875c60e130e2f3dc865ba",
-                "windows-x64": "81e21b6334f001b0489d062beb26fa656a2fea2cdd449e322e2884d042f4756f",
-                "windows-x86": "b9ff30b1e0c9a00c300b35503f1734bbded4f51dac86521fc876fd14025b6995"
+                "macos": "be12c3ad0a85713750d8325e4b1db75086223402d7080d0e3c2833d7c5e83c27",
+                "windows-x64": "970058c49322cfa9cd6d620abb393fed89743ba7e74bd9dbb6ebe0ea8141d9c7"
             }
         },
-        "qt5": {
-            "version": "2023-05-07",
-            "baseUrl": "https://github.com/summershrimp/obs-deps/releases/download",
-            "label": "Pre-built Qt5",
+        "prebuilt": {
+            "version": "2023-11-03",
+            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+            "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos-x86_64": "86ff0d3a3ab7057bca7615ee57992d3c79f79a9ff80b27b91566520560a5f3b0",
-                "macos-arm64": "d39bc94c742b5d63f608319f934f1312f386da9a9b6db76bf10dce06aa3449a7",
-                "macos-universal": "6e2d0744f78c5ba55ae6b604509ce30f0c6c52357f7357f64fcece5c2744e58f",
-                "windows-x64": "ecb53abcdb66436cf7953fd41d2619461582c5d874ad744e522e96f06e505987",
-                "windows-x86": "3f2f7efd3fb5a6d704a88fdbc77a4bcb2495b229a071068be658d7a3971b62bd"
-            },
-            "pdb-hashes": {
-                "windows-x64": "1c66a9724e7548b0a0bc6365fe9b3f87924ad76754e4318a53d62513a5809c54",
-                "windows-x86": "f5803fa086d82bd2b948c9df3b6a9096a185e340117ab65d4b730fa4744740a2"
+                "macos": "90c2fc069847ec2768dcc867c1c63b112c615ed845a907dc44acab7a97181974",
+                "windows-x64": "d0825a6fb65822c993a3059edfba70d72d2e632ef74893588cf12b1f0d329ce6"
+            }
+        },
+        "openssl": {
+            "version": "2024-01-03",
+            "baseUrl": "https://github.com/summershrimp/openssl-static/releases/download",
+            "label": "Pre-Built openssl static",
+            "hashes": {
+                "macos": "af7fa1873fa1687ed3b993f240a86d0182e618bc8a8344cd49a56ae5032405ab",
+                "windows-x64": "0368ed4c82a21b358b6571c21f0a9f0463522466b61a44190f96c351edc7133b"
             }
         },
         "qt6": {
-            "version": "2023-05-07",
-            "baseUrl": "https://github.com/summershrimp/obs-deps/releases/download",
-            "label": "Pre-built Qt6",
+            "version": "2023-11-03",
+            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+            "label": "Pre-Built Qt6",
             "hashes": {
-                "macos-x86_64": "4eb382e0b5ec5cb58e256af7c76610cf6088f52848bda174f50347c5f6d73c41",
-                "macos-arm64": "672d11d03430c6b3c7e1d4c5b6af33cc48abf8d9337e9eb31499c500fe12d1ec",
-                "macos-universal": "68b83c10a50dceaba040887e0ebbdb8eb16398035965a6cb0b6dea3785ad6732",
-                "windows-x64": "5a29da428e4c270a76730152f6d3428719b5ecfc0885907d7377b2436d0356ec",
-                "windows-x86": "da96c96d9595c5717a2d1e012e194b7dc248d14b3b075deae69ec88f78c63be7"
+                "macos": "ba4a7152848da0053f63427a2a2cb0a199af3992997c0db08564df6f48c9db98",
+                "windows-x64": "bc57dedf76b47119a6dce0435a2f21b35b08c8f2948b1cb34a157320f77732d1"
             },
-            "pdb-hashes": {
-                "windows-x64": "030459201801935b8e9cfa5279b8a2299f4f178f83f2808385d2d2769270ae94",
-                "windows-x86": "88f6b7d7e6b5eea0d0c1530e6a352464780e411ffbf495c48ffdd1c8bcd2c887"
+            "debugSymbols": {
+                "windows-x64": "fd8ecd1d8cd2ef049d9f4d7fb5c134f784836d6020758094855dfa98bd025036"
             }
         }
     },
     "platformConfig": {
-        "macos-x86_64": {
-            "qtVersion": 6,
-            "deploymentTarget": "10.15"
-        },
-        "macos-arm64": {
-            "qtVersion": 6,
-            "deploymentTarget": "11.0"
-        },
-        "macos-universal": {
-            "qtVersion": 6,
-            "deploymentTarget": "10.15"
-        },
-        "windows-x64": {
-            "qtVersion": 6,
-            "visualStudio": "Visual Studio 17 2022",
-            "platformSDK": "10.0.20348.0"
-        },
-        "windows-x86": {
-            "qtVersion": 6,
-            "visualStudio": "Visual Studio 17 2022",
-            "platformSDK": "10.0.20348.0"
-        },
-        "linux-x86_64": {
-            "qtVersion": 6
-        },
-        "linux-aarch64": {
-            "qtVersion": 6
+        "macos": {
+            "bundleId": "com.summershrimp.obs-ssp"
         }
     },
     "name": "obs-ssp",
-    "version": "0.12.0"
+    "displayName": "OBS ZCAM SSP",
+    "version": "0.13.0",
+    "author": "Hakusai Zhang",
+    "website": "https://summershrimp.com",
+    "email": "xm1994@gmail.com",
+    "uuids": {
+        "windowsApp": "6ad39870-a984-46e1-9623-d3beb72baf0b"
+    }
 }
