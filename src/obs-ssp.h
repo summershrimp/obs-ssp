@@ -22,7 +22,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <string>
 #include "imf/ISspClient.h"
 #include <stdint.h>
-#include "plugin-macros.generated.h"
+#include "plugin-support.h"
 
 #if INTPTR_MAX == INT64_MAX
 #define OBS_SSP_BITSTR "64bit"
@@ -33,7 +33,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #endif
 
 #define ssp_blog(level, msg, ...) \
-	blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
+	blog(level, "[%s] " msg, PLUGIN_NAME, ##__VA_ARGS__)
 
 extern create_ssp_class_ptr create_ssp_class;
 extern create_loop_class_ptr create_loop_class;
