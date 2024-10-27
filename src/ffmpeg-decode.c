@@ -22,18 +22,12 @@
 #include <obs-hevc.h>
 #endif
 
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 4, 100)
-#define USE_NEW_HARDWARE_CODEC_METHOD
-#endif
-
-#ifdef USE_NEW_HARDWARE_CODEC_METHOD
 enum AVHWDeviceType hw_priority[] = {
 	AV_HWDEVICE_TYPE_QSV,          AV_HWDEVICE_TYPE_CUDA,
 	AV_HWDEVICE_TYPE_DXVA2,        AV_HWDEVICE_TYPE_D3D11VA,
 	AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_NONE};
 
-static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type,
-			enum AVPixelFormat *hw_pix_fmt)
+static bool has_hw_type(const AVCodec *c, enum AVHWDeviceType type)
 {
 	for (int i = 0;; i++) {
 		const AVCodecHWConfig *config = avcodec_get_hw_config(c, i);
@@ -43,95 +37,59 @@ static bool has_hw_type(AVCodec *c, enum AVHWDeviceType type,
 
 		if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
 		    config->device_type == type) {
-			*hw_pix_fmt = config->pix_fmt;
 			return true;
 		}
 	}
 	return false;
 }
 
-static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
-					const enum AVPixelFormat *pix_fmts)
-{
-	const enum AVPixelFormat *p, *t;
-	enum AVPixelFormat hw_pix_fmt;
-	struct ffmpeg_decode *d = (struct ffmpeg_decode *)ctx->opaque;
-	hw_pix_fmt = d->hw_pix_fmt;
-
-	for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
-		if (*p == hw_pix_fmt)
-			return *p;
-	}
-	blog(LOG_INFO, "Failed to get HW surface format.\n");
-	return AV_PIX_FMT_NONE;
-}
-
 static void init_hw_decoder(struct ffmpeg_decode *d)
 {
 	enum AVHWDeviceType *priority = hw_priority;
 	AVBufferRef *hw_ctx = NULL;
-	enum AVPixelFormat hw_pix_fmt = -1;
 
 	while (*priority != AV_HWDEVICE_TYPE_NONE) {
-		if (has_hw_type(d->codec, *priority, &hw_pix_fmt)) {
+		if (has_hw_type(d->codec, *priority)) {
 			int ret = av_hwdevice_ctx_create(&hw_ctx, *priority,
 							 NULL, NULL, 0);
-			if (ret == 0) {
-				blog(LOG_INFO, "Use HW type: %u, format %u",
-				     *priority, hw_pix_fmt);
+			if (ret == 0)
 				break;
-			}
 		}
 
 		priority++;
 	}
 
 	if (hw_ctx) {
+		d->hw_device_ctx = hw_ctx;
 		d->decoder->hw_device_ctx = av_buffer_ref(hw_ctx);
-		d->decoder->get_format = get_hw_format;
-		d->hw_pix_fmt = hw_pix_fmt;
 		d->hw = true;
 	}
 }
-#endif
 
 int ffmpeg_decode_init(struct ffmpeg_decode *decode, enum AVCodecID id,
 		       bool use_hw)
 {
 	int ret;
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
-	avcodec_register_all();
-#endif
 	memset(decode, 0, sizeof(*decode));
-	decode->hw_pix_fmt = AV_PIX_FMT_NONE;
+
 	decode->codec = avcodec_find_decoder(id);
 	if (!decode->codec)
 		return -1;
 
 	decode->decoder = avcodec_alloc_context3(decode->codec);
-	decode->decoder->opaque = decode;
-	decode->decoder->thread_count = 2;
-	decode->decoder->delay = 0;
-	//decode->decoder->thread_type = 0;
 
-#ifdef USE_NEW_HARDWARE_CODEC_METHOD
+	decode->decoder->thread_count = 0;
+	decode->decoder->delay = 0;
+
 	if (use_hw)
 		init_hw_decoder(decode);
-#else
-	(void)use_hw;
-#endif
 
 	ret = avcodec_open2(decode->decoder, decode->codec, NULL);
 	if (ret < 0) {
 		ffmpeg_decode_free(decode);
 		return ret;
 	}
-
-#if LIBAVCODEC_VERSION_MAJOR < 60
-	if (decode->codec->capabilities & CODEC_CAP_TRUNC)
-		decode->decoder->flags |= CODEC_FLAG_TRUNC;
-#endif
 
 	return 0;
 }
@@ -141,13 +99,14 @@ void ffmpeg_decode_free(struct ffmpeg_decode *decode)
 	if (decode->hw_frame)
 		av_frame_free(&decode->hw_frame);
 
-	if (decode->decoder) {
-		avcodec_close(decode->decoder);
-		av_free(decode->decoder);
-	}
+	if (decode->decoder)
+		avcodec_free_context(&decode->decoder);
 
 	if (decode->frame)
 		av_frame_free(&decode->frame);
+
+	if (decode->hw_device_ctx)
+		av_buffer_unref(&decode->hw_device_ctx);
 
 	if (decode->packet_buffer)
 		bfree(decode->packet_buffer);
@@ -160,6 +119,8 @@ static inline enum video_format convert_pixel_format(int f)
 	switch (f) {
 	case AV_PIX_FMT_NONE:
 		return VIDEO_FORMAT_NONE;
+	case AV_PIX_FMT_GRAY8:
+		return VIDEO_FORMAT_Y800;
 	case AV_PIX_FMT_YUV420P:
 	case AV_PIX_FMT_YUVJ420P:
 		return VIDEO_FORMAT_I420;
@@ -298,8 +259,8 @@ bool ffmpeg_decode_audio(struct ffmpeg_decode *decode, uint8_t *data,
 
 	audio->samples_per_sec = decode->frame->sample_rate;
 	audio->format = convert_sample_format(decode->frame->format);
-	audio->speakers =
-		convert_speaker_layout((uint8_t)decode->decoder->channels);
+	audio->speakers = convert_speaker_layout(
+		(uint8_t)decode->decoder->ch_layout.nb_channels);
 
 	audio->frames = decode->frame->nb_samples;
 
@@ -341,11 +302,8 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 			 struct obs_source_frame2 *frame, bool *got_output)
 {
 	int got_frame = false;
-
-	AVFrame *avframe = NULL, *sw_frame = NULL;
-	AVFrame *tmp_frame = NULL;
-	uint8_t *buffer = NULL;
-	int ret = 0;
+	AVFrame *out_frame;
+	int ret;
 
 	*got_output = false;
 
@@ -353,19 +311,17 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 
 	if (!decode->frame) {
 		decode->frame = av_frame_alloc();
+		if (!decode->frame)
+			return false;
+
+		if (decode->hw && !decode->hw_frame) {
+			decode->hw_frame = av_frame_alloc();
+			if (!decode->hw_frame)
+				return false;
+		}
 	}
 
-	if (!decode->hw_frame) {
-		decode->hw_frame = av_frame_alloc();
-	}
-
-	if (!decode->frame || !decode->hw_frame) {
-		blog(LOG_INFO, "Can not alloc frame\n");
-		return false;
-	}
-
-	avframe = decode->hw_frame;
-	sw_frame = decode->frame;
+	out_frame = decode->hw ? decode->hw_frame : decode->frame;
 
 	AVPacket *packet = av_packet_alloc();
 	packet->data = decode->packet_buffer;
@@ -385,42 +341,40 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	}
 
 	ret = avcodec_send_packet(decode->decoder, packet);
-	if (ret < 0) {
-		blog(LOG_INFO, "Error during decoding\n");
-		return false;
+	if (ret == 0) {
+		ret = avcodec_receive_frame(decode->decoder, out_frame);
 	}
 
-	ret = avcodec_receive_frame(decode->decoder, avframe);
-	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+	av_packet_free(&packet);
+
+	got_frame = (ret == 0);
+
+	if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
+		ret = 0;
+
+	if (ret < 0)
+		return false;
+	else if (!got_frame)
 		return true;
-	} else if (ret < 0) {
-		blog(LOG_INFO, "Error while decoding\n");
-		return false;
-	}
 
-#ifdef USE_NEW_HARDWARE_CODEC_METHOD
-	if (avframe->format == decode->hw_pix_fmt) {
-		/* retrieve data from GPU to CPU */
-		if ((ret = av_hwframe_transfer_data(sw_frame, avframe, 0)) <
-		    0) {
-			blog(LOG_INFO,
-			     "Error transferring the data to system memory\n");
+	if (got_frame && decode->hw) {
+		ret = av_hwframe_transfer_data(decode->frame, out_frame, 0);
+		if (ret < 0) {
 			return false;
 		}
-		tmp_frame = sw_frame;
-	} else
-#endif
-		tmp_frame = avframe;
-
-	for (size_t i = 0; i < MAX_AV_PLANES; i++) {
-		frame->data[i] = tmp_frame->data[i];
-		frame->linesize[i] = tmp_frame->linesize[i];
 	}
 
-	frame->format = convert_pixel_format(tmp_frame->format);
+	for (size_t i = 0; i < MAX_AV_PLANES; i++) {
+		frame->data[i] = decode->frame->data[i];
+		frame->linesize[i] = decode->frame->linesize[i];
+	}
+
+	const enum video_format format =
+		convert_pixel_format(decode->frame->format);
+	frame->format = format;
 
 	if (range == VIDEO_RANGE_DEFAULT) {
-		range = (tmp_frame->color_range == AVCOL_RANGE_JPEG)
+		range = (decode->frame->color_range == AVCOL_RANGE_JPEG)
 				? VIDEO_RANGE_FULL
 				: VIDEO_RANGE_PARTIAL;
 	}
@@ -432,8 +386,8 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 	}
 
 	const bool success = video_format_get_parameters_for_format(
-		cs, range, frame->format, frame->color_matrix,
-		frame->color_range_min, frame->color_range_max);
+		cs, range, format, frame->color_matrix, frame->color_range_min,
+		frame->color_range_max);
 	if (!success) {
 		blog(LOG_ERROR,
 		     "Failed to get video format "
@@ -444,10 +398,10 @@ bool ffmpeg_decode_video(struct ffmpeg_decode *decode, uint8_t *data,
 
 	frame->range = range;
 
-	*ts = tmp_frame->pts;
+	*ts = decode->frame->pts;
 
-	frame->width = tmp_frame->width;
-	frame->height = tmp_frame->height;
+	frame->width = decode->frame->width;
+	frame->height = decode->frame->height;
 	frame->flip = false;
 
 	switch (decode->frame->color_trc) {
