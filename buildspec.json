@@ -1,42 +1,33 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "30.0.2",
+            "version": "30.2.0",
             "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
-                "macos": "be12c3ad0a85713750d8325e4b1db75086223402d7080d0e3c2833d7c5e83c27",
-                "windows-x64": "970058c49322cfa9cd6d620abb393fed89743ba7e74bd9dbb6ebe0ea8141d9c7"
+                "macos": "a94e585aa9e1c300a9294df80d9370c1d83eb64d9c331002968c6422019821dc",
+                "windows-x64": "762eaa67162877e2073edd01ce9880b6ae25ccfe971c87d8bec5883fb1f95b7e"
             }
         },
         "prebuilt": {
-            "version": "2023-11-03",
+            "version": "2024-05-08",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos": "90c2fc069847ec2768dcc867c1c63b112c615ed845a907dc44acab7a97181974",
-                "windows-x64": "d0825a6fb65822c993a3059edfba70d72d2e632ef74893588cf12b1f0d329ce6"
-            }
-        },
-        "openssl": {
-            "version": "2024-01-03",
-            "baseUrl": "https://github.com/summershrimp/openssl-static/releases/download",
-            "label": "Pre-Built openssl static",
-            "hashes": {
-                "macos": "af7fa1873fa1687ed3b993f240a86d0182e618bc8a8344cd49a56ae5032405ab",
-                "windows-x64": "0368ed4c82a21b358b6571c21f0a9f0463522466b61a44190f96c351edc7133b"
+                "macos": "da3167a3efecfa67dd72e4f2b7964c3456d74c639d4c62aa21ec300ebd5007a8",
+                "windows-x64": "773c87a0d173125ef2768aaca6f6de64a7d6053213cc9f7d3970a301152042d8"
             }
         },
         "qt6": {
-            "version": "2023-11-03",
+            "version": "2024-05-08",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built Qt6",
             "hashes": {
-                "macos": "ba4a7152848da0053f63427a2a2cb0a199af3992997c0db08564df6f48c9db98",
-                "windows-x64": "bc57dedf76b47119a6dce0435a2f21b35b08c8f2948b1cb34a157320f77732d1"
+                "macos": "248fb342e7ddf574af0960aaedeffb832deda1485dc81583302646e979593a6e",
+                "windows-x64": "8f459af5115ce081ae24b108712327e113893f250e14a902b1bd188b43873ed1"
             },
             "debugSymbols": {
-                "windows-x64": "fd8ecd1d8cd2ef049d9f4d7fb5c134f784836d6020758094855dfa98bd025036"
+                "windows-x64": "e4bc882f23195becbe53f1594fe75bdb9ff4f1d01e319f6caf8e0a38000cb42b"
             }
         }
     },
