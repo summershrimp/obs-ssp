@@ -111,8 +111,8 @@ int ffmpeg_decode_init(struct ffmpeg_decode *decode, enum AVCodecID id,
 
 	decode->decoder = avcodec_alloc_context3(decode->codec);
 	decode->decoder->opaque = decode;
-	decode->decoder->thread_count = 2;
-	decode->decoder->delay = 0;
+	decode->decoder->thread_count = 0;
+	//decode->decoder->delay = 0;
 	//decode->decoder->thread_type = 0;
 
 #ifdef USE_NEW_HARDWARE_CODEC_METHOD
