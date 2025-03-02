@@ -54,7 +54,13 @@ int msg_write(char *buf, size_t size)
 	Message *msg = (Message *)buf;
 	size_t writed = 0, cur = 0;
 	//log_conn("send msg type: %d, size %d", msg->type, msg->length);
-	return fwrite(buf, 1, size, stdout);
+	writed = fwrite(buf, 1, size, stdout);
+	fflush(stdout);
+	if (ferror(stdout)) {
+		log_conn("ferror on msg_write");
+		return -1;
+	}
+	return writed;
 }
 
 int process_args(int argc, char **argv)
@@ -247,7 +253,8 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 	_setmode(_fileno(stdout), O_BINARY);
 #endif
-	setbuf(stdout, nullptr); // unbuffered stdout
+	setvbuf(stdout, NULL, _IONBF, 0);
+	//setbuf(stdout, nullptr); // unbuffered stdout
 
 	log_conn("host: %s\nport: %d\nuuid: %s\n", address, port, uuid);
 	auto loop = new imf::Loop();
