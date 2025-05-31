@@ -33,6 +33,8 @@ runs:
       run: |
         : Run macOS Build
 
+        export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
         local -a build_args=(--config ${{ inputs.config }})
         if (( ${+RUNNER_DEBUG} )) build_args+=(--debug)
 
