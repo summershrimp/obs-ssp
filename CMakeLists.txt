@@ -47,10 +47,17 @@ set(obs-ssp_SOURCES
     src/ssp-mdns.cpp
     src/ssp-controller.cpp
     src/VFrameQueue.cpp
-    src/ssp-client-iso.cpp)
+    src/ssp-client-iso.cpp
+    src/util/pipe.c)
+
+if(OS_WINDOWS)
+  list(APPEND obs-ssp_SOURCES src/util/pipe-windows.c)
+else()
+  list(APPEND obs-ssp_SOURCES src/util/pipe-posix.c)
+endif()
 
 set(obs-ssp_HEADERS src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h
-                    src/ssp-client.h)
+                    src/ssp-client.h src/util/pipe.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${obs-ssp_SOURCES})
 

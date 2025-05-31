@@ -133,9 +133,6 @@ void SSPClientIso::doStart()
 	dstr_init_copy(&cmd, ssp_connector_path.toStdString().c_str());
 	dstr_insert_ch(&cmd, 0, '\"');
 	dstr_cat(&cmd, "\" ");
-#if defined(__APPLE__) && defined(__arm64__)
-	dstr_insert(&cmd, 0, "arch -x86_64 ");
-#endif
 	dstr_cat(&cmd, "--host ");
 	dstr_cat(&cmd, this->ip.c_str());
 	dstr_cat(&cmd, " --port ");

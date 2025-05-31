@@ -25,7 +25,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include <imf/ISspClient.h>
 extern "C" {
-#include <util/pipe.h>
+#include "util/pipe.h"
 }
 #include <ssp_connector_proto.h>
 
