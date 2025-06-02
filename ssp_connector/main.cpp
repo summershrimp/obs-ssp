@@ -108,7 +108,7 @@ static void on_general_message(MessageType type)
 	int sz = msg_write((char *)&msg, sizeof(msg));
 	if (sz != sizeof(msg)) {
 		log_conn("stopped.");
-		gSspClient->stop();
+		//gSspClient->stop();
 		gLoop->quit();
 	}
 }
@@ -130,7 +130,7 @@ static void on_video(imf::SspH264Data *video)
 	free(msg);
 	if (sz != len) {
 		log_conn("stopped.");
-		gSspClient->stop();
+		//gSspClient->stop();
 		gLoop->quit();
 	}
 }
@@ -151,7 +151,7 @@ static void on_audio(imf::SspAudioData *audio)
 	free(msg);
 	if (sz != len) {
 		log_conn("stopped.");
-		gSspClient->stop();
+		//gSspClient->stop();
 		gLoop->quit();
 	}
 }
@@ -186,7 +186,7 @@ static void on_meta(imf::SspVideoMeta *vmeta, struct imf::SspAudioMeta *ameta,
 	free(msg);
 	if (sz != len) {
 		log_conn("stopped sz != len %d != %d.", sz, len);
-		gSspClient->stop();
+		//gSspClient->stop();
 		gLoop->quit();
 	}
 }
@@ -206,7 +206,7 @@ static void on_exception(int code, const char *description)
 	if (sz != len) {
 		log_conn("exception error.");
 	}
-	gSspClient->stop();
+	//gSspClient->stop();
 	gLoop->quit();
 }
 
@@ -226,7 +226,7 @@ static void setup(imf::Loop *loop)
 		std::bind(on_general_message, RecvBufferFullMsg));
 	client->setOnDisconnectedCallback([=]() {
 		on_general_message(DisconnectMsg);
-		client->stop();
+		//client->stop();
 		loop->quit();
 	});
 	client->start();
@@ -238,7 +238,7 @@ static void setup(imf::Loop *loop)
 
 	if (sz != sizeof(msg)) {
 		log_conn("stopped.");
-		client->stop();
+		//client->stop();
 		gLoop->quit();
 	}
 }
@@ -254,6 +254,7 @@ int main(int argc, char **argv)
 	_setmode(_fileno(stdout), O_BINARY);
 #endif
 	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(logfile, NULL, _IONBF, 0);
 	//setbuf(stdout, nullptr); // unbuffered stdout
 
 	log_conn("host: %s\nport: %d\nuuid: %s\n", address, port, uuid);
@@ -263,9 +264,10 @@ int main(int argc, char **argv)
 	setup(gLoop);
 	loop->loop();
 	log_conn("loop finished");
+	// gSspClient->stop();
 	delete loop;
-	if (gSspClient) {
-		delete gSspClient;
-	}
+	// if (gSspClient) {
+	// 	delete gSspClient;
+	// }
 	return 0;
 }
