@@ -19,6 +19,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <obs.h>
 #include <util/dstr.h>
 #include <util/platform.h>
+#include <memory> // For std::unique_ptr
 
 #ifdef _WIN32
 #include <windows.h>
@@ -35,6 +36,12 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-ssp.h"
 #include "ssp-client-iso.h"
+#include <QCoreApplication>
+#include <iostream>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QDebug>
 
 static size_t os_process_pipe_read_retry(os_process_pipe *pipe, uint8_t *dst,
 					 size_t size)
@@ -124,6 +131,25 @@ SSPClientIso::SSPClientIso(const std::string &ip, uint32_t bufferSize)
 #endif
 	connect(this, SIGNAL(Start()), this, SLOT(doStart()));
 }
+
+SSPClientIso::~SSPClientIso()
+{
+	// Ensure we stop the client and clean up resources
+	Stop();
+
+	// Disconnect all signals to prevent callbacks after destruction
+	disconnect(this, SIGNAL(Start()), this, SLOT(doStart()));
+
+	// Clear all callbacks to prevent dangling references
+	bufferFullCallback = nullptr;
+	audioDataCallback = nullptr;
+	metaCallback = nullptr;
+	disconnectedCallback = nullptr;
+	connectedCallback = nullptr;
+	h264DataCallback = nullptr;
+	exceptionCallback = nullptr;
+}
+
 using namespace std::placeholders;
 
 void SSPClientIso::doStart()
@@ -157,7 +183,7 @@ void SSPClientIso::doStart()
 void *SSPClientIso::ReceiveThread(void *arg)
 {
 	auto th = (SSPClientIso *)arg;
-	Message *msg;
+	Message *msg = nullptr;
 	th->statusLock.lock();
 	auto pipe = th->pipe;
 	th->statusLock.unlock();
@@ -166,20 +192,25 @@ void *SSPClientIso::ReceiveThread(void *arg)
 	std::thread(dump_stderr, pipe).detach();
 #endif
 
-	msg = msg_recv(pipe);
-	if (!msg) {
-		blog(LOG_WARNING, "Receive error !");
+	// Use RAII to ensure message is freed
+	std::unique_ptr<Message, decltype(&msg_free)> initial_msg(
+		msg_recv(pipe), msg_free);
+	if (!initial_msg) {
+		blog(LOG_WARNING, "%s Receive error !", th->getIp().c_str());
 		return nullptr;
 	}
-	if (msg->type != MessageType::ConnectorOkMsg) {
-		blog(LOG_WARNING, "Protocol error !");
+	if (initial_msg->type != MessageType::ConnectorOkMsg) {
+		blog(LOG_WARNING, "%s Protocol error !", th->getIp().c_str());
 		return nullptr;
 	}
 
 	while (th->running) {
-		msg = msg_recv(pipe);
+		// Use RAII to ensure message is freed
+		std::unique_ptr<Message, decltype(&msg_free)> msg(
+			msg_recv(pipe), msg_free);
 		if (!msg) {
-			blog(LOG_WARNING, "Receive error !");
+			blog(LOG_WARNING, "%s Receive error !",
+			     th->getIp().c_str());
 			break;
 		}
 
@@ -209,10 +240,9 @@ void *SSPClientIso::ReceiveThread(void *arg)
 			blog(LOG_WARNING, "Protocol error !");
 			break;
 		}
-
-		msg_free(msg);
 	}
 
+	blog(LOG_WARNING, "%s Receive thread exit !", th->getIp().c_str());
 	return nullptr;
 }
 
@@ -224,9 +254,14 @@ void SSPClientIso::Restart()
 
 void SSPClientIso::Stop()
 {
-	blog(LOG_INFO, "ssp client stopping...");
+	blog(LOG_INFO, "ssp client %s stopping...", ip.c_str());
+	if (!running) {
+		blog(LOG_INFO, "ssp client %s already stopped...", ip.c_str());
+		return;
+	}
 	this->statusLock.lock();
 	this->running = false;
+	this->statusLock.unlock();
 	if (this->worker.joinable()) {
 		this->worker.join();
 	}
@@ -234,7 +269,6 @@ void SSPClientIso::Stop()
 		os_process_pipe_destroy(this->pipe);
 		this->pipe = nullptr;
 	}
-	this->statusLock.unlock();
 }
 
 void SSPClientIso::OnRecvBufferFull()

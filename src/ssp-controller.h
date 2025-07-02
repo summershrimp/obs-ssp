@@ -46,10 +46,13 @@ public:
 	void setLed(bool isOn);
 
 	QString model;
+	QString name;
+	QString nickName;
 	std::vector<QString> resolutions;
 	QString current_resolution;
 	std::vector<QString> framerates;
 	QString current_framerate;
+	QString current_index;
 	StreamInfo current_streamInfo;
 	void setStream(int stream_index, QString resolution, bool low_noise,
 		       QString fps, int bitrate, StatusReasonUpdateCallback cb);
@@ -60,14 +63,37 @@ signals:
 			 StatusReasonUpdateCallback cb);
 	void onRefresh(StatusUpdateCallback cb);
 	void onSetLed(bool on);
+
 private slots:
 	void doSetStream(int stream_index, QString resolution, bool low_noise,
 			 QString fps, int bitrate,
 			 StatusReasonUpdateCallback cb);
+	//These functions are called in doSetStream Based on need.
+
 	void doRefresh(StatusUpdateCallback cb);
 	void doSetLed(bool on);
 
 private:
+	void doSetStreamReolutionInternal(QString index,
+					  QString real_resolution,
+					  QString width, QString height,
+					  QString bitrate2, QString fps,
+					  StatusReasonUpdateCallback cb);
+	void doSetStreamFpsInternal(QString index, QString width,
+				    QString height, QString bitrate2,
+				    QString fps, StatusReasonUpdateCallback cb);
+	void doSetStreamIndexInternal(QString index, QString width,
+				      QString height, QString bitrate2,
+				      QString fps,
+				      StatusReasonUpdateCallback cb);
+	void doSetStreamBitrateInternal(int stream_index, QString resolution,
+					bool low_noise, QString fps,
+					int bitrate,
+					StatusReasonUpdateCallback cb);
+	void doSetStreamInternal(QString index, QString width, QString height,
+				 QString bitrate2, QString fps,
+				 StatusReasonUpdateCallback cb);
+
 	CameraController *controller;
 };
 

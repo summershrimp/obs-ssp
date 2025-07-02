@@ -82,6 +82,10 @@ public:
 			    OnRequestCallback callback);
 
 	void setSendStream(const QString &value, OnRequestCallback callback);
+	void setStreamAttr(const QString &index, const QString &width,
+			   const QString &height, const QString &bitrate,
+			   const QString &gop, const QString &fps,
+			   const QString &codec, OnRequestCallback callback);
 	void setStreamBitrate(const QString &index, const QString &bitrate,
 			      OnRequestCallback callback);
 	void setStreamBitrateAndGop(const QString &index,

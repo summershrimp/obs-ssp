@@ -6,7 +6,7 @@ project(${_name} VERSION ${_version})
 
 set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 
-set(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
+set(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
 set(ENABLE_QT "Use Qt functionality" ON)
 
 include(compilerconfig)
@@ -48,8 +48,11 @@ set(obs-ssp_SOURCES
     src/ssp-controller.cpp
     src/VFrameQueue.cpp
     src/ssp-client-iso.cpp
+    src/ssp-dock.cpp
+    src/ssp-toolbar.cpp
+    src/camera-status-manager.cpp
     src/util/pipe.c)
-
+	
 if(OS_WINDOWS)
   list(APPEND obs-ssp_SOURCES src/util/pipe-windows.c)
 else()
@@ -57,7 +60,11 @@ else()
 endif()
 
 set(obs-ssp_HEADERS src/obs-ssp.h src/ssp-mdns.h src/ssp-controller.h src/VFrameQueue.h
-                    src/ssp-client.h src/util/pipe.h)
+                     src/ssp-client.h
+                     src/ssp-dock.h
+                     src/ssp-toolbar.h
+                     src/camera-status-manager.h
+		     src/util/pipe.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${obs-ssp_SOURCES})
 
@@ -68,7 +75,7 @@ find_package(FFmpeg REQUIRED COMPONENTS AVCODEC AVUTIL)
 add_subdirectory(thirdpty)
 
 target_include_directories(
-  ${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/lib/ssp/include
+  ${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/lib/ssp/include ${CMAKE_SOURCE_DIR}/lib/obs-browser/include
                                 ${CMAKE_SOURCE_DIR}/ssp_connector)
 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_HEVC)

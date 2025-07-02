@@ -22,7 +22,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <QProcess>
 #include <mutex>
 #include <thread>
-
+#include <atomic>
 #include <imf/ISspClient.h>
 extern "C" {
 #include "util/pipe.h"
@@ -40,7 +40,7 @@ class SSPClientIso : public QObject {
 
 public:
 	SSPClientIso(const std::string &ip, uint32_t bufferSize);
-
+	~SSPClientIso();
 	virtual void
 	setOnRecvBufferFullCallback(const imf::OnRecvBufferFullCallback &cb);
 	virtual void setOnH264DataCallback(const imf::OnH264DataCallback &cb);
@@ -54,6 +54,7 @@ public:
 	void Stop();
 	void Restart();
 	static void *ReceiveThread(void *arg);
+	std::string getIp() { return ip; };
 signals:
 	void Start();
 
@@ -70,7 +71,7 @@ private:
 	virtual void OnException(Message *exception);
 
 	std::mutex statusLock;
-	bool running;
+	std::atomic<bool> running;
 	std::string ip;
 	uint32_t bufferSize;
 	QString ssp_connector_path;

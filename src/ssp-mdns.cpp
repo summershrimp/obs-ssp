@@ -43,6 +43,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-ssp.h"
 #include "ssp-mdns.h"
+#include "camera-status-manager.h"
 
 #define DEFAULT_TTL 60
 
@@ -80,8 +81,8 @@ static mdns_string_t ipv4_address_to_string(char *buffer, size_t capacity,
 {
 	char host[NI_MAXHOST] = {0};
 	char service[NI_MAXSERV] = {0};
-	int ret = getnameinfo((const struct sockaddr *)addr, addrlen, host,
-			      NI_MAXHOST, service, NI_MAXSERV,
+	int ret = getnameinfo((const struct sockaddr *)addr, (socklen_t)addrlen,
+			      host, NI_MAXHOST, service, NI_MAXSERV,
 			      NI_NUMERICSERV | NI_NUMERICHOST);
 	int len = 0;
 	if (ret == 0) {
@@ -103,8 +104,8 @@ static mdns_string_t ipv6_address_to_string(char *buffer, size_t capacity,
 {
 	char host[NI_MAXHOST] = {0};
 	char service[NI_MAXSERV] = {0};
-	int ret = getnameinfo((const struct sockaddr *)addr, addrlen, host,
-			      NI_MAXHOST, service, NI_MAXSERV,
+	int ret = getnameinfo((const struct sockaddr *)addr, (socklen_t)addrlen,
+			      host, NI_MAXHOST, service, NI_MAXSERV,
 			      NI_NUMERICSERV | NI_NUMERICHOST);
 	int len = 0;
 	if (ret == 0) {
@@ -156,8 +157,9 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 		current_mdns_record.last_available =
 			os_gettime_ns() / 1000000 + ttl * 1000;
 		current_mdns_record.has_ptr = true;
-	} else if (current_mdns_record.has_ptr && rtype == MDNS_RECORDTYPE_A &&
-		   from->sa_family == AF_INET) {
+	}
+	if (current_mdns_record.has_ptr && rtype == MDNS_RECORDTYPE_A &&
+	    from->sa_family == AF_INET) {
 		struct sockaddr_in addr;
 		mdns_record_parse_a(data, size, record_offset, record_length,
 				    &addr);
@@ -166,6 +168,17 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 		current_mdns_record.has_a = true;
 		current_mdns_record.last_available =
 			os_gettime_ns() / 1000000 + ttl * 1000;
+
+		// Get IP string for the record
+		mdns_string_t addr_str = ipv4_address_to_string(
+			addrbuffer, sizeof(addrbuffer),
+			&(current_mdns_record.a_record),
+			sizeof(current_mdns_record.a_record));
+
+		std::string ip_str(addr_str.str, addr_str.length);
+
+		CameraStatusManager::instance()->getOrCreate(ip_str);
+
 		ssp_records_lock.lock();
 		ssp_records[current_mdns_record.ptr_record] =
 			current_mdns_record;
@@ -181,6 +194,18 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 		current_mdns_record.has_aaaa = true;
 		current_mdns_record.last_available =
 			os_gettime_ns() / 1000000 + ttl * 1000;
+
+		// Get IP string for the record
+		mdns_string_t addr_str = ipv6_address_to_string(
+			addrbuffer, sizeof(addrbuffer),
+			&(current_mdns_record.aaaa_record),
+			sizeof(current_mdns_record.aaaa_record));
+
+		std::string ip_str(addr_str.str, addr_str.length);
+
+		// Register the IP with CameraStatusManager
+		CameraStatusManager::instance()->getOrCreate(ip_str);
+
 		ssp_records_lock.lock();
 		ssp_records[current_mdns_record.ptr_record] =
 			current_mdns_record;
