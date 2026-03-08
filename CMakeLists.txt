@@ -97,7 +97,7 @@ set_source_files_properties(
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 
 # --- Platform-independent build settings ---
-find_package(FFmpeg REQUIRED COMPONENTS AVCODEC AVUTIL)
+find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 add_subdirectory(thirdpty)
 
 target_include_directories(
@@ -117,6 +117,11 @@ if(OS_MACOS)
 elseif(OS_WINDOWS)
   install(TARGETS ssp-connector DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit")
   install(FILES ${LIBSSP_LIBRARY} DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit")
+elseif(OS_LINUX)
+  if(TARGET ssp-connector)
+    install(TARGETS ssp-connector DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES ${LIBSSP_LIBRARY} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
 endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
