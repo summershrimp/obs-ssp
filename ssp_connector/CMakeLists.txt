@@ -35,6 +35,9 @@ if(NOT libssp_POPULATED)
         \"${LIBSSP_LIBRARY}\""
     )
     execute_process(COMMAND /bin/sh -c "${_COMMAND}")
+  elseif(OS_LINUX)
+    target_link_libraries(libssp INTERFACE "${libssp_SOURCE_DIR}/lib/linux_x64/libssp.so")
+    set(LIBSSP_LIBRARY "${libssp_SOURCE_DIR}/lib/linux_x64/libssp.so" PARENT_SCOPE)
   endif()
 endif()
 
