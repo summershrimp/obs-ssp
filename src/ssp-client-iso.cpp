@@ -22,6 +22,8 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <signal.h>
 #endif
 
 #if defined(__APPLE__)
@@ -227,6 +229,15 @@ void SSPClientIso::Stop()
 	blog(LOG_INFO, "ssp client stopping...");
 	this->statusLock.lock();
 	this->running = false;
+
+	/* Kill the connector process first so its stdout closes,
+	 * which unblocks the fread() in the worker thread. Without
+	 * this, worker.join() deadlocks because the worker is stuck
+	 * in a blocking pipe read that never returns. */
+	if (this->pipe) {
+		os_process_pipe_signal(this->pipe, SIGTERM);
+	}
+
 	if (this->worker.joinable()) {
 		this->worker.join();
 	}

@@ -209,6 +209,14 @@ os_process_pipe_t *os_process_pipe_create2(const os_process_args_t *args,
 	return ret;
 }
 
+int os_process_pipe_signal(os_process_pipe_t *pp, int sig)
+{
+	(void)sig;
+	if (!pp)
+		return -1;
+	return TerminateProcess(pp->process, 1) ? 0 : -1;
+}
+
 int os_process_pipe_destroy(os_process_pipe_t *pp)
 {
 	int ret = 0;
