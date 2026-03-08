@@ -309,67 +309,86 @@ static int send_simple_msg(enum MessageType type)
 static int send_metadata_msg(const uint8_t *pkt, uint32_t pkt_len)
 {
 	/*
-	 * Metadata packet layout (from wire analysis):
-	 * [0]    packet type (0x6E)
-	 * [1..2] unknown/flags
-	 * [3..6] video width (BE32)
-	 * [7..10] video height (BE32)
-	 * [11..14] video timescale (BE32)
-	 * [15..18] video unit (BE32)
-	 * [19..22] video gop (BE32)
-	 * [23..26] video encoder (BE32)
-	 * [27..30] audio timescale (BE32)
-	 * [31..34] audio unit (BE32)
-	 * [35..38] audio sample_rate (BE32)
-	 * [39..42] audio sample_size (BE32)
-	 * [43..46] audio channel (BE32)
-	 * [47..50] audio bitrate (BE32)
-	 * [51..54] audio encoder (BE32)
-	 * [55]     pts_is_wall_clock (bool)
-	 * [56]     tc_drop_frame (bool)
-	 * [57..60] timecode (BE32)
+	 * Metadata packet layout (verified against live Z CAM wire capture):
 	 *
-	 * Note: exact offsets may vary. We parse conservatively and log values.
+	 * [0]     packet type (0x6E)
+	 * [1..4]  version/flags (e.g. 00 01 00 00)
+	 * [5..8]  field count as BE32 (0x11 = 17 fields)
+	 * [9..]   17 × BE32 fields:
+	 *
+	 *  Field  Meaning
+	 *  ─────  ────────────────────────────
+	 *    0    video.timescale   (e.g. 30000)
+	 *    1    video.unit        (e.g. 1001)
+	 *    2    video.width       (e.g. 1920)
+	 *    3    video.height      (e.g. 1080)
+	 *    4    video.gop         (e.g. 30)
+	 *    5    (reserved / 0)
+	 *    6    audio.sample_rate (e.g. 48000)
+	 *    7    audio.unit        (e.g. 1024)
+	 *    8    audio.timescale   (e.g. 48000)
+	 *    9    audio.sample_size (e.g. 2048)
+	 *   10    audio.channel     (e.g. 2)
+	 *   11    audio.bitrate     (e.g. 128000 bps)
+	 *   12    pts_is_wall_clock (0 or 1)
+	 *   13    video.encoder     (96=H264, 265=H265)
+	 *   14    audio.encoder     (37=AAC, 23=PCM)
+	 *   15    timecode          (SMPTE BCD-packed)
+	 *   16    tc_drop_frame     (0 or 1)
 	 */
 
-	if (pkt_len < 55) {
-		log_conn("metadata packet too short: %u bytes", pkt_len);
+	/* Need at least: 1 type + 4 version + 4 count + 17*4 fields = 77 bytes */
+	if (pkt_len < 77) {
+		log_conn("metadata packet too short: %u bytes (need >= 77)", pkt_len);
 		return -1;
 	}
 
-	size_t off = 3; /* skip type byte + 2 flag bytes */
+	uint32_t field_count = read_be32(pkt + 5);
+	if (field_count < 17) {
+		log_conn("metadata: unexpected field count %u (expected >= 17)", field_count);
+		/* Fall through — parse what we can */
+	}
+
+	/* Read 17 BE32 fields starting at offset 9 */
+	size_t off = 9;
+	uint32_t f[17];
+	for (int i = 0; i < 17 && off + 4 <= pkt_len; i++, off += 4)
+		f[i] = read_be32(pkt + off);
 
 	struct Metadata md;
 	memset(&md, 0, sizeof(md));
 
 	/* Video meta */
-	md.vmeta.width     = read_be32(pkt + off); off += 4;
-	md.vmeta.height    = read_be32(pkt + off); off += 4;
-	md.vmeta.timescale = read_be32(pkt + off); off += 4;
-	md.vmeta.unit      = read_be32(pkt + off); off += 4;
-	md.vmeta.gop       = read_be32(pkt + off); off += 4;
-	md.vmeta.encoder   = read_be32(pkt + off); off += 4;
+	md.vmeta.timescale = f[0];
+	md.vmeta.unit      = f[1];
+	md.vmeta.width     = f[2];
+	md.vmeta.height    = f[3];
+	md.vmeta.gop       = f[4];
+	/* f[5] reserved */
+	md.vmeta.encoder   = f[13];
 
 	/* Audio meta */
-	md.ameta.timescale   = read_be32(pkt + off); off += 4;
-	md.ameta.unit        = read_be32(pkt + off); off += 4;
-	md.ameta.sample_rate = read_be32(pkt + off); off += 4;
-	md.ameta.sample_size = read_be32(pkt + off); off += 4;
-	md.ameta.channel     = read_be32(pkt + off); off += 4;
-	md.ameta.bitrate     = read_be32(pkt + off); off += 4;
-	md.ameta.encoder     = read_be32(pkt + off); off += 4;
+	md.ameta.sample_rate = f[6];
+	md.ameta.unit        = f[7];
+	md.ameta.timescale   = f[8];
+	md.ameta.sample_size = f[9];
+	md.ameta.channel     = f[10];
+	md.ameta.bitrate     = f[11];
+	md.ameta.encoder     = f[14];
 
 	/* Base meta */
-	if (off + 6 <= pkt_len) {
-		md.meta.pts_is_wall_clock = pkt[off++];
-		md.meta.tc_drop_frame     = pkt[off++];
-		if (off + 4 <= pkt_len)
-			md.meta.timecode = read_be32(pkt + off);
-	}
+	md.meta.pts_is_wall_clock = (uint16_t)f[12];
+	md.meta.timecode          = f[15];
+	md.meta.tc_drop_frame     = (uint16_t)f[16];
 
-	log_conn("metadata: video=%ux%u enc=%u gop=%u, audio=%uhz ch=%u enc=%u",
-	         md.vmeta.width, md.vmeta.height, md.vmeta.encoder, md.vmeta.gop,
-	         md.ameta.sample_rate, md.ameta.channel, md.ameta.encoder);
+	log_conn("metadata: video=%ux%u ts=%u/%u gop=%u enc=%u, "
+	         "audio=%uhz ch=%u enc=%u br=%u, wall_clock=%u",
+	         md.vmeta.width, md.vmeta.height,
+	         md.vmeta.timescale, md.vmeta.unit,
+	         md.vmeta.gop, md.vmeta.encoder,
+	         md.ameta.sample_rate, md.ameta.channel,
+	         md.ameta.encoder, md.ameta.bitrate,
+	         md.meta.pts_is_wall_clock);
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct Metadata);
 	struct Message *msg = (struct Message *)malloc(msg_len);
@@ -385,28 +404,28 @@ static int send_metadata_msg(const uint8_t *pkt, uint32_t pkt_len)
 static int send_video_msg(const uint8_t *pkt, uint32_t pkt_len)
 {
 	/*
-	 * Video packet layout:
+	 * Video packet layout (verified against live Z CAM wire capture):
+	 *
 	 * [0]      packet type (0x6F)
-	 * [1..2]   flags/unknown
-	 * [3..10]  pts (BE64)
-	 * [11..18] ntp_timestamp (BE64)
-	 * [19..22] frm_no (BE32)
-	 * [23..26] type (BE32) — 5 = I-frame
-	 * [27..]   H.264/H.265 NAL data
+	 * [1..8]   pts (BE64)
+	 * [9..12]  frame type (BE32) — 5 = IDR/I-frame, 1 = P-frame
+	 * [13..16] frame number (BE32)
+	 * [17..]   H.264/H.265 NAL data (starts with 00 00 00 01 start code)
+	 *
+	 * Note: ntp_timestamp is NOT present in the wire format.
 	 */
 
-	if (pkt_len < 27) {
+	if (pkt_len < 17) {
 		log_conn("video packet too short: %u", pkt_len);
 		return -1;
 	}
 
-	size_t off = 3;
-	uint64_t pts           = read_be64(pkt + off); off += 8;
-	uint64_t ntp_timestamp = read_be64(pkt + off); off += 8;
-	uint32_t frm_no        = read_be32(pkt + off); off += 4;
-	uint32_t type          = read_be32(pkt + off); off += 4;
+	uint64_t pts    = read_be64(pkt + 1);
+	uint32_t type   = read_be32(pkt + 9);
+	uint32_t frm_no = read_be32(pkt + 13);
 
-	size_t data_len = pkt_len - off;
+	size_t data_off = 17;
+	size_t data_len = pkt_len - data_off;
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct VideoData) + data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
@@ -417,11 +436,11 @@ static int send_video_msg(const uint8_t *pkt, uint32_t pkt_len)
 
 	struct VideoData *vd = (struct VideoData *)msg->value;
 	vd->pts = pts;
-	vd->ntp_timestamp = ntp_timestamp;
+	vd->ntp_timestamp = 0; /* not present in SSP wire format */
 	vd->frm_no = frm_no;
 	vd->type = type;
 	vd->len = data_len;
-	memcpy(vd->data, pkt + off, data_len);
+	memcpy(vd->data, pkt + data_off, data_len);
 
 	int sz = msg_write(msg, msg_len);
 	free(msg);
@@ -436,24 +455,24 @@ static int send_video_msg(const uint8_t *pkt, uint32_t pkt_len)
 static int send_audio_msg(const uint8_t *pkt, uint32_t pkt_len)
 {
 	/*
-	 * Audio packet layout:
-	 * [0]      packet type (0x70)
-	 * [1..2]   flags/unknown
-	 * [3..10]  pts (BE64)
-	 * [11..18] ntp_timestamp (BE64)
-	 * [19..]   audio data
+	 * Audio packet layout (verified against live Z CAM wire capture):
+	 *
+	 * [0]    packet type (0x70)
+	 * [1..8] pts (BE64)
+	 * [9..]  audio data (AAC ADTS frames, starts with 0xFFF sync)
+	 *
+	 * Note: ntp_timestamp is NOT present in the wire format.
 	 */
 
-	if (pkt_len < 19) {
+	if (pkt_len < 9) {
 		log_conn("audio packet too short: %u", pkt_len);
 		return -1;
 	}
 
-	size_t off = 3;
-	uint64_t pts           = read_be64(pkt + off); off += 8;
-	uint64_t ntp_timestamp = read_be64(pkt + off); off += 8;
+	uint64_t pts = read_be64(pkt + 1);
 
-	size_t data_len = pkt_len - off;
+	size_t data_off = 9;
+	size_t data_len = pkt_len - data_off;
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct AudioData) + data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
@@ -464,9 +483,9 @@ static int send_audio_msg(const uint8_t *pkt, uint32_t pkt_len)
 
 	struct AudioData *ad = (struct AudioData *)msg->value;
 	ad->pts = pts;
-	ad->ntp_timestamp = ntp_timestamp;
+	ad->ntp_timestamp = 0; /* not present in SSP wire format */
 	ad->len = data_len;
-	memcpy(ad->data, pkt + off, data_len);
+	memcpy(ad->data, pkt + data_off, data_len);
 
 	int sz = msg_write(msg, msg_len);
 	free(msg);
