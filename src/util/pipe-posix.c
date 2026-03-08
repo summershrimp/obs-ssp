@@ -15,6 +15,7 @@
  */
 
 #include <stdio.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
@@ -140,6 +141,13 @@ os_process_pipe_t *os_process_pipe_create2(const os_process_args_t *args,
 {
 	char **argv = os_process_args_get_argv(args);
 	return os_process_pipe_create_internal(argv[0], argv, type);
+}
+
+int os_process_pipe_signal(os_process_pipe_t *pp, int sig)
+{
+	if (!pp || pp->pid <= 0)
+		return -1;
+	return kill(pp->pid, sig);
 }
 
 int os_process_pipe_destroy(os_process_pipe_t *pp)
