@@ -33,6 +33,7 @@ EXPORT os_process_pipe_t *os_process_pipe_create(const char *cmd_line,
 EXPORT os_process_pipe_t *os_process_pipe_create2(const os_process_args_t *args,
 						  const char *type);
 EXPORT int os_process_pipe_destroy(os_process_pipe_t *pp);
+EXPORT int os_process_pipe_signal(os_process_pipe_t *pp, int sig);
 
 EXPORT size_t os_process_pipe_read(os_process_pipe_t *pp, uint8_t *data,
 				   size_t len);
