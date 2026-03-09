@@ -6,8 +6,8 @@ project(${_name} VERSION ${_version})
 
 set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 
-set(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
-set(ENABLE_QT "Use Qt functionality" ON)
+option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
+option(ENABLE_QT "Use Qt functionality" ON)
 
 include(compilerconfig)
 include(defaults)
@@ -64,7 +64,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${obs-ssp_SOURCES})
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 
 # --- Platform-independent build settings ---
-find_package(FFmpeg REQUIRED COMPONENTS AVCODEC AVUTIL)
+find_package(FFmpeg REQUIRED COMPONENTS avcodec avutil)
 add_subdirectory(thirdpty)
 
 target_include_directories(
@@ -78,10 +78,19 @@ add_subdirectory(ssp_connector)
 
 if(OS_MACOS)
   install(TARGETS ssp-connector DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/MacOS")
-  install(FILES ${LIBSSP_LIBRARY} DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/Frameworks")
+  if(LIBSSP_LIBRARY)
+    install(FILES ${LIBSSP_LIBRARY} DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/Frameworks")
+  endif()
 elseif(OS_WINDOWS)
   install(TARGETS ssp-connector DESTINATION "obs-plugins/64bit")
-  install(FILES ${LIBSSP_LIBRARY} DESTINATION "obs-plugins/64bit")
+  if(LIBSSP_LIBRARY)
+    install(FILES ${LIBSSP_LIBRARY} DESTINATION "obs-plugins/64bit")
+  endif()
+elseif(OS_LINUX)
+  install(TARGETS ssp-connector DESTINATION ${CMAKE_INSTALL_BINDIR})
+  if(LIBSSP_LIBRARY)
+    install(FILES ${LIBSSP_LIBRARY} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
 endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
