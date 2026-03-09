@@ -1,6 +1,7 @@
 project(ssp-connector)
 
 option(USE_NATIVE_SSP "Use native SSP implementation instead of closed-source libssp" OFF)
+option(SSP_BUILD_TESTS "Build SSP protocol unit tests" OFF)
 
 if(USE_NATIVE_SSP OR (OS_LINUX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"))
   # ── Native SSP connector (no libssp dependency) ──
@@ -8,9 +9,25 @@ if(USE_NATIVE_SSP OR (OS_LINUX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"))
 
   find_package(OpenSSL REQUIRED)
 
-  add_executable(ssp-connector ssp_native.c)
+  # SSP client library (compiled as object library for linking)
+  add_library(ssp_client OBJECT ssp.c)
+  target_include_directories(ssp_client PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+                                               ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(ssp_client PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+
+  # ssp-connector executable (CLI + IPC bridge)
+  add_executable(ssp-connector ssp_connector_main.c)
   target_include_directories(ssp-connector PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-  target_link_libraries(ssp-connector PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+  target_link_libraries(ssp-connector PRIVATE ssp_client)
+
+  # Optional: unit tests
+  if(SSP_BUILD_TESTS)
+    add_executable(test-ssp test_ssp.c)
+    target_include_directories(test-ssp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+                                                ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test-ssp PRIVATE ssp_client)
+  endif()
+
 else()
   # ── Original libssp-based connector ──
   include(FetchContent)
