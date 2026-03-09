@@ -7,7 +7,7 @@
  *   - Symbol analysis of libssp.so
  *   - obs-ssp connector IPC protocol
  *
- * Copyright (c) 2025, Hedonistic IO
+ * Copyright (c) 2026, Hedonistic, LLC
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * With blackjack and hookers.
