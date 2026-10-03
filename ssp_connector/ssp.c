@@ -14,11 +14,16 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 #include "ssp_platform.h"
 #include "include/ssp/ssp.h"
 
+#ifdef _WIN32
+#include <bcrypt.h>
+#else
 #include <openssl/evp.h>
+#endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Internal logging
@@ -52,18 +57,12 @@
 static const char SSP_USERNAME[] = "zcam-live-user";
 
 /* Pre-computed: SHA1("zcam-live-password") */
-static const uint8_t PASSWORD_HASH[20] = {
-	0x41, 0x67, 0x7f, 0x4a, 0x21, 0x55, 0xc6, 0x05,
-	0x61, 0xed, 0xe4, 0xa1, 0x68, 0x42, 0xd0, 0x1a,
-	0xd1, 0x0e, 0x73, 0xf5
-};
+static const uint8_t PASSWORD_HASH[20] = {0x41, 0x67, 0x7f, 0x4a, 0x21, 0x55, 0xc6, 0x05, 0x61, 0xed,
+					  0xe4, 0xa1, 0x68, 0x42, 0xd0, 0x1a, 0xd1, 0x0e, 0x73, 0xf5};
 
 /* Pre-computed: SHA1(SHA1("zcam-live-password")) */
-static const uint8_t PASSWORD_HASH_HASH[20] = {
-	0x0d, 0xc5, 0x27, 0x59, 0x89, 0x82, 0xf9, 0x5b,
-	0x58, 0x1e, 0x61, 0x64, 0xd3, 0xe3, 0x7b, 0x65,
-	0x69, 0x52, 0x1e, 0xef
-};
+static const uint8_t PASSWORD_HASH_HASH[20] = {0x0d, 0xc5, 0x27, 0x59, 0x89, 0x82, 0xf9, 0x5b, 0x58, 0x1e,
+					       0x61, 0x64, 0xd3, 0xe3, 0x7b, 0x65, 0x69, 0x52, 0x1e, 0xef};
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Client State
@@ -71,21 +70,21 @@ static const uint8_t PASSWORD_HASH_HASH[20] = {
 
 struct ssp_client {
 	/* Connection */
-	ssp_socket_t     sock;
-	char             host[256];
-	unsigned int     port;
-	uint32_t         stream_style;
-	volatile bool    running;
+	ssp_socket_t sock;
+	char host[256];
+	unsigned int port;
+	uint32_t stream_style;
+	atomic_bool running;
 
 	/* Callbacks */
-	ssp_callbacks_t  callbacks;
+	ssp_callbacks_t callbacks;
 
 	/* Device info */
-	char             device_name[128];
+	char device_name[128];
 
 	/* Metadata (cached for queries) */
-	ssp_metadata_t   metadata;
-	bool             has_metadata;
+	ssp_metadata_t metadata;
+	bool has_metadata;
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -99,8 +98,7 @@ static inline uint16_t read_be16(const uint8_t *p)
 
 static inline uint32_t read_be32(const uint8_t *p)
 {
-	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-	       ((uint32_t)p[2] << 8)  | (uint32_t)p[3];
+	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
 }
 
 static inline uint64_t read_be64(const uint8_t *p)
@@ -118,7 +116,7 @@ static inline void write_be32(uint8_t *p, uint32_t v)
 {
 	p[0] = (v >> 24) & 0xFF;
 	p[1] = (v >> 16) & 0xFF;
-	p[2] = (v >> 8)  & 0xFF;
+	p[2] = (v >> 8) & 0xFF;
 	p[3] = v & 0xFF;
 }
 
@@ -127,8 +125,12 @@ static void swap_endian_4(uint8_t *buf, size_t len)
 {
 	for (size_t i = 0; i + 3 < len; i += 4) {
 		uint8_t t;
-		t = buf[i]; buf[i] = buf[i+3]; buf[i+3] = t;
-		t = buf[i+1]; buf[i+1] = buf[i+2]; buf[i+2] = t;
+		t = buf[i];
+		buf[i] = buf[i + 3];
+		buf[i + 3] = t;
+		t = buf[i + 1];
+		buf[i + 1] = buf[i + 2];
+		buf[i + 2] = t;
 	}
 }
 
@@ -136,47 +138,69 @@ static void swap_endian_4(uint8_t *buf, size_t len)
  * Network I/O
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static int recv_exact(ssp_client_t *c, void *buf, size_t n)
+static bool client_running(ssp_client_t *c)
 {
-	uint8_t *p = (uint8_t *)buf;
-	size_t remaining = n;
+	return atomic_load(&c->running) &&
+	       !(c->callbacks.should_stop && c->callbacks.should_stop(c->callbacks.userdata));
+}
 
-	while (remaining > 0 && c->running) {
-		ssize_t r = recv(c->sock, (char *)p, remaining, 0);
-		if (r <= 0) {
-			if (r == 0) {
-				ssp_log("connection closed by peer");
-			} else if (ssp_errno_intr()) {
+/* Only the connection thread accesses the socket. Bounded polling permits
+ * cancellation without closing a descriptor that another thread may reuse. */
+static int wait_socket(ssp_client_t *c, short events, int64_t deadline)
+{
+	while (client_running(c)) {
+		if (deadline && ssp_clock_ms() >= deadline)
+			return -1;
+		ssp_pollfd_t pfd = {0};
+		pfd.fd = c->sock;
+		pfd.events = events;
+		int ret = ssp_poll(&pfd, 1, 100);
+		if (ret < 0) {
+			if (ssp_errno_intr())
 				continue;
-			} else {
-				ssp_log("recv error: %d", ssp_errno());
-			}
 			return -1;
 		}
-		p += r;
-		remaining -= (size_t)r;
+		if (ret > 0)
+			return 0; /* recv/send or SO_ERROR diagnoses hangup and errors. */
+		if (deadline && ssp_clock_ms() >= deadline)
+			return -1;
 	}
-	return c->running ? 0 : -1;
+	return -1;
+}
+
+static int recv_exact(ssp_client_t *c, void *buf, size_t n)
+{
+	uint8_t *p = buf;
+	while (n > 0 && client_running(c)) {
+		if (wait_socket(c, SSP_POLLIN, 0) < 0)
+			return -1;
+		ssp_io_result_t r = recv(c->sock, (char *)p, (int)n, 0);
+		if (r < 0 && (ssp_errno_intr() || ssp_errno_again()))
+			continue;
+		if (r <= 0)
+			return -1;
+		p += r;
+		n -= (size_t)r;
+	}
+	return client_running(c) ? 0 : -1;
 }
 
 static int send_exact(ssp_client_t *c, const void *buf, size_t n)
 {
-	const uint8_t *p = (const uint8_t *)buf;
-	size_t remaining = n;
-
-	while (remaining > 0) {
-		ssize_t w = send(c->sock, (const char *)p, remaining,
-		                 SSP_MSG_NOSIGNAL);
-		if (w <= 0) {
-			if (w < 0 && ssp_errno_intr())
-				continue;
-			ssp_log("send error: %d", ssp_errno());
+	const uint8_t *p = buf;
+	int64_t deadline = ssp_clock_ms() + 5000;
+	while (n > 0 && client_running(c)) {
+		if (wait_socket(c, SSP_POLLOUT, deadline) < 0)
 			return -1;
-		}
+		ssp_io_result_t w = send(c->sock, (const char *)p, (int)n, SSP_MSG_NOSIGNAL);
+		if (w < 0 && (ssp_errno_intr() || ssp_errno_again()))
+			continue;
+		if (w <= 0)
+			return -1;
 		p += w;
-		remaining -= (size_t)w;
+		n -= (size_t)w;
 	}
-	return 0;
+	return client_running(c) ? 0 : -1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -227,23 +251,41 @@ static int ssp_send_packet(ssp_client_t *c, const void *data, uint32_t len)
  * token = SHA1(password) XOR swap_endian(SHA1(challenge || SHA1(SHA1(password))))
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void compute_auth_token(const uint8_t *challenge, size_t challenge_len,
-                               uint8_t *token_out)
+static int compute_auth_token(const uint8_t *challenge, size_t challenge_len, uint8_t *token_out)
 {
 	uint8_t digest[20];
+#ifdef _WIN32
+	if (challenge_len != 20)
+		return -1;
+	uint8_t input[40];
+	memcpy(input, challenge, 20);
+	memcpy(input + 20, PASSWORD_HASH_HASH, 20);
+	BCRYPT_ALG_HANDLE alg = NULL;
+	if (BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA1_ALGORITHM, NULL, 0) < 0)
+		return -1;
+	NTSTATUS status = BCryptHash(alg, NULL, 0, input, sizeof(input), digest, sizeof(digest));
+	BCryptCloseAlgorithmProvider(alg, 0);
+	if (status < 0)
+		return -1;
+#else
 	unsigned int digest_len = 0;
-
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-	EVP_DigestInit_ex(ctx, EVP_sha1(), NULL);
-	EVP_DigestUpdate(ctx, challenge, challenge_len);
-	EVP_DigestUpdate(ctx, PASSWORD_HASH_HASH, sizeof(PASSWORD_HASH_HASH));
-	EVP_DigestFinal_ex(ctx, digest, &digest_len);
+	if (!ctx)
+		return -1;
+	int ok = EVP_DigestInit_ex(ctx, EVP_sha1(), NULL) == 1 &&
+		 EVP_DigestUpdate(ctx, challenge, challenge_len) == 1 &&
+		 EVP_DigestUpdate(ctx, PASSWORD_HASH_HASH, sizeof(PASSWORD_HASH_HASH)) == 1 &&
+		 EVP_DigestFinal_ex(ctx, digest, &digest_len) == 1;
 	EVP_MD_CTX_free(ctx);
+	if (!ok || digest_len != sizeof(digest))
+		return -1;
+#endif
 
 	swap_endian_4(digest, 20);
 
 	for (int i = 0; i < 20; i++)
 		token_out[i] = PASSWORD_HASH[i] ^ digest[i];
+	return 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -252,8 +294,6 @@ static void compute_auth_token(const uint8_t *challenge, size_t challenge_len,
 
 static int do_connect(ssp_client_t *c)
 {
-	ssp_platform_init();
-
 	ssp_socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == SSP_INVALID_SOCKET) {
 		ssp_log("socket() failed: %d", ssp_errno());
@@ -262,13 +302,11 @@ static int do_connect(ssp_client_t *c)
 
 	/* TCP_NODELAY for minimum latency */
 	int flag = 1;
-	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
-	           (const char *)&flag, sizeof(flag));
+	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char *)&flag, sizeof(flag));
 
 	/* Increase receive buffer */
 	int rcvbuf = SSP_RECV_BUF_SIZE;
-	setsockopt(sock, SOL_SOCKET, SO_RCVBUF,
-	           (const char *)&rcvbuf, sizeof(rcvbuf));
+	setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char *)&rcvbuf, sizeof(rcvbuf));
 
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
@@ -281,30 +319,22 @@ static int do_connect(ssp_client_t *c)
 		return -1;
 	}
 
-	/* Connect with 5-second timeout */
-#ifdef _WIN32
-	DWORD tv = 5000;
-#else
-	struct timeval tv = {.tv_sec = 5, .tv_usec = 0};
-#endif
-	setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof(tv));
-
-	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		ssp_log("connect to %s:%u failed: %d", c->host, c->port, ssp_errno());
-		ssp_close(sock);
+	c->sock = sock;
+	if (ssp_nonblocking(sock) < 0)
 		return -1;
+	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		if (!ssp_errno_again() || wait_socket(c, SSP_POLLOUT, ssp_clock_ms() + 5000) < 0)
+			return -1;
+		int error = 0;
+#ifdef _WIN32
+		int size = sizeof(error);
+#else
+		socklen_t size = sizeof(error);
+#endif
+		if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&error, &size) != 0 || error)
+			return -1;
 	}
 
-	/* Clear the send timeout */
-#ifdef _WIN32
-	tv = 0;
-#else
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-#endif
-	setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof(tv));
-
-	c->sock = sock;
 	ssp_log("connected to %s:%u", c->host, c->port);
 	return 0;
 }
@@ -330,8 +360,7 @@ static int do_handshake(ssp_client_t *c)
 	/* Extract device name (null-terminated at offset 8) */
 	size_t name_start = 8;
 	if (name_start < pkt_len) {
-		size_t name_len = strnlen((char *)(pkt + name_start),
-		                          pkt_len - name_start);
+		size_t name_len = strnlen((char *)(pkt + name_start), pkt_len - name_start);
 		if (name_len > sizeof(c->device_name) - 1)
 			name_len = sizeof(c->device_name) - 1;
 		memcpy(c->device_name, pkt + name_start, name_len);
@@ -352,7 +381,8 @@ static int do_handshake(ssp_client_t *c)
 
 	/* Compute auth token and send handshake */
 	uint8_t token[20];
-	compute_auth_token(challenge, 20, token);
+	if (compute_auth_token(challenge, 20, token) < 0)
+		return -1;
 
 	uint8_t handshake[44];
 	memset(handshake, 0, sizeof(handshake));
@@ -413,7 +443,7 @@ static int do_start_stream(ssp_client_t *c)
 
 static int do_send_heartbeat(ssp_client_t *c)
 {
-	uint8_t hb[1] = { SSP_PKT_HEARTBEAT };
+	uint8_t hb[1] = {SSP_PKT_HEARTBEAT};
 	return ssp_send_packet(c, hb, sizeof(hb));
 }
 
@@ -421,8 +451,7 @@ static int do_send_heartbeat(ssp_client_t *c)
  * Packet Handlers — dispatch to user callbacks
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void handle_metadata(ssp_client_t *c, const uint8_t *pkt,
-                            uint32_t pkt_len)
+static void handle_metadata(ssp_client_t *c, const uint8_t *pkt, uint32_t pkt_len)
 {
 	if (pkt_len < 77) {
 		ssp_log("metadata packet too short: %u bytes (need >= 77)", pkt_len);
@@ -431,8 +460,7 @@ static void handle_metadata(ssp_client_t *c, const uint8_t *pkt,
 
 	uint32_t field_count = read_be32(pkt + 5);
 	if (field_count < 17)
-		ssp_log("metadata: unexpected field count %u (expected >= 17)",
-		        field_count);
+		ssp_log("metadata: unexpected field count %u (expected >= 17)", field_count);
 
 	/* Read 17 BE32 fields starting at offset 9 */
 	size_t off = 9;
@@ -444,41 +472,37 @@ static void handle_metadata(ssp_client_t *c, const uint8_t *pkt,
 	memset(md, 0, sizeof(*md));
 
 	md->video.timescale = f[0];
-	md->video.unit      = f[1];
-	md->video.width     = f[2];
-	md->video.height    = f[3];
-	md->video.gop       = f[4];
-	md->video.encoder   = f[13];
+	md->video.unit = f[1];
+	md->video.width = f[2];
+	md->video.height = f[3];
+	md->video.gop = f[4];
+	md->video.encoder = f[13];
 
 	md->audio.sample_rate = f[6];
-	md->audio.unit        = f[7];
-	md->audio.timescale   = f[8];
+	md->audio.unit = f[7];
+	md->audio.timescale = f[8];
 	md->audio.sample_size = f[9];
-	md->audio.channel     = f[10];
-	md->audio.bitrate     = f[11];
-	md->audio.encoder     = f[14];
+	md->audio.channel = f[10];
+	md->audio.bitrate = f[11];
+	md->audio.encoder = f[14];
 
 	md->base.pts_is_wall_clock = (uint16_t)f[12];
-	md->base.timecode          = f[15];
-	md->base.tc_drop_frame     = (uint16_t)f[16];
+	md->base.timecode = f[15];
+	md->base.tc_drop_frame = (uint16_t)f[16];
 
 	c->has_metadata = true;
 
 	ssp_log("metadata: video=%ux%u ts=%u/%u gop=%u enc=%u, "
-	        "audio=%uhz ch=%u enc=%u br=%u, wall_clock=%u",
-	        md->video.width, md->video.height,
-	        md->video.timescale, md->video.unit,
-	        md->video.gop, md->video.encoder,
-	        md->audio.sample_rate, md->audio.channel,
-	        md->audio.encoder, md->audio.bitrate,
-	        md->base.pts_is_wall_clock);
+		"audio=%uhz ch=%u enc=%u br=%u, wall_clock=%u",
+		md->video.width, md->video.height, md->video.timescale, md->video.unit, md->video.gop,
+		md->video.encoder, md->audio.sample_rate, md->audio.channel, md->audio.encoder, md->audio.bitrate,
+		md->base.pts_is_wall_clock);
 
 	if (c->callbacks.on_metadata)
 		c->callbacks.on_metadata(md, c->callbacks.userdata);
 }
 
-static void handle_video(ssp_client_t *c, const uint8_t *pkt,
-                         uint32_t pkt_len)
+static void handle_video(ssp_client_t *c, const uint8_t *pkt, uint32_t pkt_len)
 {
 	if (pkt_len < 17) {
 		ssp_log("video packet too short: %u", pkt_len);
@@ -486,18 +510,17 @@ static void handle_video(ssp_client_t *c, const uint8_t *pkt,
 	}
 
 	ssp_video_frame_t frame;
-	frame.pts          = read_be64(pkt + 1);
-	frame.frame_type   = read_be32(pkt + 9);
+	frame.pts = read_be64(pkt + 1);
+	frame.frame_type = read_be32(pkt + 9);
 	frame.frame_number = read_be32(pkt + 13);
-	frame.data         = pkt + 17;
-	frame.data_len     = pkt_len - 17;
+	frame.data = pkt + 17;
+	frame.data_len = pkt_len - 17;
 
 	if (c->callbacks.on_video)
 		c->callbacks.on_video(&frame, c->callbacks.userdata);
 }
 
-static void handle_audio(ssp_client_t *c, const uint8_t *pkt,
-                         uint32_t pkt_len)
+static void handle_audio(ssp_client_t *c, const uint8_t *pkt, uint32_t pkt_len)
 {
 	if (pkt_len < 9) {
 		ssp_log("audio packet too short: %u", pkt_len);
@@ -505,8 +528,8 @@ static void handle_audio(ssp_client_t *c, const uint8_t *pkt,
 	}
 
 	ssp_audio_frame_t frame;
-	frame.pts      = read_be64(pkt + 1);
-	frame.data     = pkt + 9;
+	frame.pts = read_be64(pkt + 1);
+	frame.data = pkt + 9;
 	frame.data_len = pkt_len - 9;
 
 	if (c->callbacks.on_audio)
@@ -521,13 +544,13 @@ static int stream_loop(ssp_client_t *c)
 {
 	int64_t last_hb = ssp_clock_ms();
 
-	while (c->running) {
+	while (client_running(c)) {
 		ssp_pollfd_t pfd;
 		memset(&pfd, 0, sizeof(pfd));
 		pfd.fd = c->sock;
 		pfd.events = SSP_POLLIN;
 
-		int ret = ssp_poll(&pfd, 1, HEARTBEAT_INTERVAL_MS);
+		int ret = ssp_poll(&pfd, 1, 100);
 
 		if (ret < 0) {
 			if (ssp_errno_intr())
@@ -539,14 +562,15 @@ static int stream_loop(ssp_client_t *c)
 		/* Send heartbeat if interval elapsed */
 		int64_t now = ssp_clock_ms();
 		if (now - last_hb >= HEARTBEAT_INTERVAL_MS) {
-			do_send_heartbeat(c);
+			if (do_send_heartbeat(c) < 0)
+				return -1;
 			last_hb = now;
 		}
 
 		if (ret == 0)
 			continue;
 
-		if (pfd.revents & (SSP_POLLERR | SSP_POLLHUP)) {
+		if ((pfd.revents & (SSP_POLLERR | SSP_POLLHUP)) && !(pfd.revents & SSP_POLLIN)) {
 			ssp_log("connection error/hangup");
 			return -1;
 		}
@@ -575,8 +599,7 @@ static int stream_loop(ssp_client_t *c)
 			handle_audio(c, pkt, pkt_len);
 			break;
 		default:
-			ssp_log("unknown packet type: 0x%02x len=%u",
-			        pkt[0], pkt_len);
+			ssp_log("unknown packet type: 0x%02x len=%u", pkt[0], pkt_len);
 			break;
 		}
 
@@ -596,10 +619,14 @@ ssp_client_t *ssp_client_create(void)
 	if (!c)
 		return NULL;
 
+	if (ssp_platform_init() != 0) {
+		free(c);
+		return NULL;
+	}
 	c->sock = SSP_INVALID_SOCKET;
 	c->port = SSP_DEFAULT_PORT;
 	c->stream_style = SSP_STREAM_DEFAULT;
-	c->running = false;
+	atomic_init(&c->running, false);
 	c->has_metadata = false;
 
 	return c;
@@ -619,8 +646,7 @@ void ssp_client_destroy(ssp_client_t *c)
 	free(c);
 }
 
-int ssp_client_set_target(ssp_client_t *c, const char *host,
-                          unsigned int port)
+int ssp_client_set_target(ssp_client_t *c, const char *host, unsigned int port)
 {
 	if (!c || !host || port == 0)
 		return -1;
@@ -652,13 +678,15 @@ int ssp_client_connect(ssp_client_t *c)
 	if (!c)
 		return -1;
 
-	c->running = true;
+	atomic_store(&c->running, true);
 
-	if (do_connect(c) < 0)
+	if (do_connect(c) < 0) {
+		if (c->sock != SSP_INVALID_SOCKET) {
+			ssp_close(c->sock);
+			c->sock = SSP_INVALID_SOCKET;
+		}
 		return -1;
-
-	if (c->callbacks.on_connected)
-		c->callbacks.on_connected(c->callbacks.userdata);
+	}
 
 	if (do_handshake(c) < 0) {
 		ssp_close(c->sock);
@@ -671,6 +699,9 @@ int ssp_client_connect(ssp_client_t *c)
 		c->sock = SSP_INVALID_SOCKET;
 		return -1;
 	}
+
+	if (c->callbacks.on_connected)
+		c->callbacks.on_connected(c->callbacks.userdata);
 
 	int ret = stream_loop(c);
 
@@ -686,7 +717,7 @@ int ssp_client_connect(ssp_client_t *c)
 void ssp_client_stop(ssp_client_t *c)
 {
 	if (c)
-		c->running = false;
+		atomic_store(&c->running, false);
 }
 
 const char *ssp_client_device_name(const ssp_client_t *c)
@@ -700,7 +731,6 @@ const char *ssp_client_device_name(const ssp_client_t *c)
 
 const char *ssp_version_string(void)
 {
-	return "ssp " SSP_STRINGIFY(SSP_VERSION_MAJOR) "."
-	       SSP_STRINGIFY(SSP_VERSION_MINOR) "."
-	       SSP_STRINGIFY(SSP_VERSION_PATCH);
+	return "ssp " SSP_STRINGIFY(SSP_VERSION_MAJOR) "." SSP_STRINGIFY(SSP_VERSION_MINOR) "." SSP_STRINGIFY(
+		SSP_VERSION_PATCH);
 }

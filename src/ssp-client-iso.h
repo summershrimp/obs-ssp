@@ -21,6 +21,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include <QObject>
 #include <QProcess>
 #include <mutex>
+#include <atomic>
 #include <thread>
 
 #include <imf/ISspClient.h>
@@ -67,7 +68,7 @@ private:
 	virtual void OnException(Message *exception);
 
 	std::mutex statusLock;
-	bool running;
+	std::atomic_bool running;
 	std::string ip;
 	uint32_t bufferSize;
 	QString ssp_connector_path;

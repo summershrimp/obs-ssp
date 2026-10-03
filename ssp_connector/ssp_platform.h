@@ -8,6 +8,9 @@
 #ifndef SSP_PLATFORM_H
 #define SSP_PLATFORM_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef _WIN32
 
 #include <winsock2.h>
@@ -15,6 +18,19 @@
 #pragma comment(lib, "ws2_32.lib")
 
 typedef SOCKET ssp_socket_t;
+typedef int ssp_io_result_t;
+
+static inline int ssp_nonblocking(ssp_socket_t s)
+{
+	u_long mode = 1;
+	return ioctlsocket(s, FIONBIO, &mode);
+}
+
+static inline bool ssp_errno_again(void)
+{
+	int err = WSAGetLastError();
+	return err == WSAEWOULDBLOCK || err == WSAEINPROGRESS;
+}
 #define SSP_INVALID_SOCKET INVALID_SOCKET
 #define SSP_SOCKET_ERROR   SOCKET_ERROR
 
@@ -24,15 +40,28 @@ static inline int ssp_platform_init(void)
 	return WSAStartup(MAKEWORD(2, 2), &wsa);
 }
 
-static inline void ssp_platform_cleanup(void) { WSACleanup(); }
-static inline int  ssp_close(ssp_socket_t s)  { return closesocket(s); }
-static inline int  ssp_errno(void)             { return WSAGetLastError(); }
-static inline bool ssp_errno_intr(void)        { return false; } /* no EINTR on Windows */
+static inline void ssp_platform_cleanup(void)
+{
+	WSACleanup();
+}
+static inline int ssp_close(ssp_socket_t s)
+{
+	return closesocket(s);
+}
+static inline int ssp_errno(void)
+{
+	return WSAGetLastError();
+}
+static inline bool ssp_errno_intr(void)
+{
+	return false;
+} /* no EINTR on Windows */
 
 /* Windows send() doesn't support MSG_NOSIGNAL */
 #define SSP_MSG_NOSIGNAL 0
 
 /* poll() → WSAPoll() */
+#define SSP_POLLOUT POLLOUT
 #define SSP_POLLIN   POLLIN
 #define SSP_POLLERR  POLLERR
 #define SSP_POLLHUP  POLLHUP
@@ -52,6 +81,7 @@ static inline int64_t ssp_clock_ms(void)
 #else /* POSIX */
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
@@ -62,17 +92,47 @@ static inline int64_t ssp_clock_ms(void)
 #include <poll.h>
 
 typedef int ssp_socket_t;
+typedef ssize_t ssp_io_result_t;
+
+static inline int ssp_nonblocking(ssp_socket_t s)
+{
+	int flags = fcntl(s, F_GETFL, 0);
+	return flags < 0 ? -1 : fcntl(s, F_SETFL, flags | O_NONBLOCK);
+}
+
+static inline bool ssp_errno_again(void)
+{
+	return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS;
+}
 #define SSP_INVALID_SOCKET (-1)
 #define SSP_SOCKET_ERROR   (-1)
 
-static inline int  ssp_platform_init(void)    { signal(SIGPIPE, SIG_IGN); return 0; }
-static inline void ssp_platform_cleanup(void) { }
-static inline int  ssp_close(ssp_socket_t s)  { return close(s); }
-static inline int  ssp_errno(void)             { return errno; }
-static inline bool ssp_errno_intr(void)        { return errno == EINTR; }
+static inline int ssp_platform_init(void)
+{
+	signal(SIGPIPE, SIG_IGN);
+	return 0;
+}
+static inline void ssp_platform_cleanup(void) {}
+static inline int ssp_close(ssp_socket_t s)
+{
+	return close(s);
+}
+static inline int ssp_errno(void)
+{
+	return errno;
+}
+static inline bool ssp_errno_intr(void)
+{
+	return errno == EINTR;
+}
 
+#ifdef MSG_NOSIGNAL
 #define SSP_MSG_NOSIGNAL MSG_NOSIGNAL
+#else
+#define SSP_MSG_NOSIGNAL 0
+#endif
 
+#define SSP_POLLOUT POLLOUT
 #define SSP_POLLIN   POLLIN
 #define SSP_POLLERR  POLLERR
 #define SSP_POLLHUP  POLLHUP

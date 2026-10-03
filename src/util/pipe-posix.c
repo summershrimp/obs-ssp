@@ -34,8 +34,7 @@ struct os_process_pipe {
 	FILE *err_file;
 };
 
-os_process_pipe_t *os_process_pipe_create_internal(const char *bin, char **argv,
-						   const char *type)
+os_process_pipe_t *os_process_pipe_create_internal(const char *bin, char **argv, const char *type)
 {
 	struct os_process_pipe process_pipe = {0};
 	struct os_process_pipe *out;
@@ -78,24 +77,20 @@ os_process_pipe_t *os_process_pipe_create_internal(const char *bin, char **argv,
 	if (process_pipe.read_pipe) {
 		posix_spawn_file_actions_addclose(&file_actions, mainfds[0]);
 		if (mainfds[1] != STDOUT_FILENO) {
-			posix_spawn_file_actions_adddup2(
-				&file_actions, mainfds[1], STDOUT_FILENO);
+			posix_spawn_file_actions_adddup2(&file_actions, mainfds[1], STDOUT_FILENO);
 		}
 	} else {
 		posix_spawn_file_actions_addclose(&file_actions, mainfds[1]);
 		if (mainfds[0] != STDIN_FILENO) {
-			posix_spawn_file_actions_adddup2(
-				&file_actions, mainfds[0], STDIN_FILENO);
+			posix_spawn_file_actions_adddup2(&file_actions, mainfds[0], STDIN_FILENO);
 		}
 	}
 
 	posix_spawn_file_actions_addclose(&file_actions, errfds[0]);
-	posix_spawn_file_actions_adddup2(&file_actions, errfds[1],
-					 STDERR_FILENO);
+	posix_spawn_file_actions_adddup2(&file_actions, errfds[1], STDERR_FILENO);
 
 	int pid;
-	int ret = posix_spawn(&pid, bin, &file_actions, NULL,
-			      (char *const *)argv, environ);
+	int ret = posix_spawnp(&pid, bin, &file_actions, NULL, (char *const *)argv, environ);
 
 	posix_spawn_file_actions_destroy(&file_actions);
 
@@ -126,8 +121,7 @@ os_process_pipe_t *os_process_pipe_create_internal(const char *bin, char **argv,
 	return out;
 }
 
-os_process_pipe_t *os_process_pipe_create(const char *cmd_line,
-					  const char *type)
+os_process_pipe_t *os_process_pipe_create(const char *cmd_line, const char *type)
 {
 	if (!cmd_line)
 		return NULL;
@@ -136,8 +130,7 @@ os_process_pipe_t *os_process_pipe_create(const char *cmd_line,
 	return os_process_pipe_create_internal("/bin/sh", argv, type);
 }
 
-os_process_pipe_t *os_process_pipe_create2(const os_process_args_t *args,
-					   const char *type)
+os_process_pipe_t *os_process_pipe_create2(const os_process_args_t *args, const char *type)
 {
 	char **argv = os_process_args_get_argv(args);
 	return os_process_pipe_create_internal(argv[0], argv, type);
@@ -187,8 +180,7 @@ size_t os_process_pipe_read(os_process_pipe_t *pp, uint8_t *data, size_t len)
 	return fread(data, 1, len, pp->file);
 }
 
-size_t os_process_pipe_read_err(os_process_pipe_t *pp, uint8_t *data,
-				size_t len)
+size_t os_process_pipe_read_err(os_process_pipe_t *pp, uint8_t *data, size_t len)
 {
 	if (!pp) {
 		return 0;
@@ -197,8 +189,7 @@ size_t os_process_pipe_read_err(os_process_pipe_t *pp, uint8_t *data,
 	return fread(data, 1, len, pp->err_file);
 }
 
-size_t os_process_pipe_write(os_process_pipe_t *pp, const uint8_t *data,
-			     size_t len)
+size_t os_process_pipe_write(os_process_pipe_t *pp, const uint8_t *data, size_t len)
 {
 	if (!pp) {
 		return 0;

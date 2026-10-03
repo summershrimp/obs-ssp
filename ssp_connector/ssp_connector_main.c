@@ -13,6 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 
 #include "include/ssp/ssp.h"
 #include "ssp_connector_proto.h"
@@ -30,6 +34,7 @@
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 static ssp_client_t *g_client = NULL;
+static volatile sig_atomic_t stop_requested = 0;
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * IPC output to obs-ssp plugin (stdout pipe)
@@ -59,6 +64,25 @@ static int send_simple_msg(enum MessageType type)
 	return 0;
 }
 
+/* ExceptionMsg carries a nested Message followed by a terminated description. */
+static int send_exception(uint32_t code, const char *description)
+{
+	size_t description_len = strlen(description) + 1;
+	size_t payload_len = sizeof(struct Message) + description_len;
+	struct Message *msg = malloc(sizeof(*msg) + payload_len);
+	if (!msg)
+		return -1;
+	msg->type = ExceptionMsg;
+	msg->length = (uint32_t)payload_len;
+	struct Message *error = (struct Message *)msg->value;
+	error->type = code;
+	error->length = (uint32_t)description_len;
+	memcpy(error->value, description, description_len);
+	int result = msg_write(msg, sizeof(*msg) + payload_len);
+	free(msg);
+	return result == (int)(sizeof(struct Message) + payload_len) ? 0 : -1;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * SSP Callbacks → IPC Messages
  * ═══════════════════════════════════════════════════════════════════════════ */
@@ -71,27 +95,28 @@ static void on_metadata(const ssp_metadata_t *meta, void *userdata)
 	memset(&md, 0, sizeof(md));
 
 	md.vmeta.timescale = meta->video.timescale;
-	md.vmeta.unit      = meta->video.unit;
-	md.vmeta.width     = meta->video.width;
-	md.vmeta.height    = meta->video.height;
-	md.vmeta.gop       = meta->video.gop;
-	md.vmeta.encoder   = meta->video.encoder;
+	md.vmeta.unit = meta->video.unit;
+	md.vmeta.width = meta->video.width;
+	md.vmeta.height = meta->video.height;
+	md.vmeta.gop = meta->video.gop;
+	md.vmeta.encoder = meta->video.encoder;
 
 	md.ameta.sample_rate = meta->audio.sample_rate;
-	md.ameta.unit        = meta->audio.unit;
-	md.ameta.timescale   = meta->audio.timescale;
+	md.ameta.unit = meta->audio.unit;
+	md.ameta.timescale = meta->audio.timescale;
 	md.ameta.sample_size = meta->audio.sample_size;
-	md.ameta.channel     = meta->audio.channel;
-	md.ameta.bitrate     = meta->audio.bitrate;
-	md.ameta.encoder     = meta->audio.encoder;
+	md.ameta.channel = meta->audio.channel;
+	md.ameta.bitrate = meta->audio.bitrate;
+	md.ameta.encoder = meta->audio.encoder;
 
 	md.meta.pts_is_wall_clock = meta->base.pts_is_wall_clock;
-	md.meta.timecode          = meta->base.timecode;
-	md.meta.tc_drop_frame     = meta->base.tc_drop_frame;
+	md.meta.timecode = meta->base.timecode;
+	md.meta.tc_drop_frame = meta->base.tc_drop_frame;
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct Metadata);
 	struct Message *msg = (struct Message *)malloc(msg_len);
-	if (!msg) return;
+	if (!msg)
+		return;
 
 	msg->type = MetaDataMsg;
 	msg->length = sizeof(struct Metadata);
@@ -105,8 +130,7 @@ static void on_video(const ssp_video_frame_t *frame, void *userdata)
 {
 	(void)userdata;
 
-	size_t msg_len = sizeof(struct Message) + sizeof(struct VideoData)
-	                 + frame->data_len;
+	size_t msg_len = sizeof(struct Message) + sizeof(struct VideoData) + frame->data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
 	if (!msg) {
 		ssp_client_stop(g_client);
@@ -114,7 +138,7 @@ static void on_video(const ssp_video_frame_t *frame, void *userdata)
 	}
 
 	msg->type = VideoDataMsg;
-	msg->length = sizeof(struct VideoData) + frame->data_len;
+	msg->length = (uint32_t)(sizeof(struct VideoData) + frame->data_len);
 
 	struct VideoData *vd = (struct VideoData *)msg->value;
 	vd->pts = frame->pts;
@@ -135,8 +159,7 @@ static void on_audio(const ssp_audio_frame_t *frame, void *userdata)
 {
 	(void)userdata;
 
-	size_t msg_len = sizeof(struct Message) + sizeof(struct AudioData)
-	                 + frame->data_len;
+	size_t msg_len = sizeof(struct Message) + sizeof(struct AudioData) + frame->data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
 	if (!msg) {
 		ssp_client_stop(g_client);
@@ -144,7 +167,7 @@ static void on_audio(const ssp_audio_frame_t *frame, void *userdata)
 	}
 
 	msg->type = AudioDataMsg;
-	msg->length = sizeof(struct AudioData) + frame->data_len;
+	msg->length = (uint32_t)(sizeof(struct AudioData) + frame->data_len);
 
 	struct AudioData *ad = (struct AudioData *)msg->value;
 	ad->pts = frame->pts;
@@ -162,7 +185,7 @@ static void on_audio(const ssp_audio_frame_t *frame, void *userdata)
 static void on_connected(void *userdata)
 {
 	(void)userdata;
-	send_simple_msg(ConnectorOkMsg);
+	send_simple_msg(ConnectionConnectedMsg);
 }
 
 static void on_disconnected(void *userdata)
@@ -178,8 +201,13 @@ static void on_disconnected(void *userdata)
 static void signal_handler(int sig)
 {
 	(void)sig;
-	if (g_client)
-		ssp_client_stop(g_client);
+	stop_requested = 1;
+}
+
+static bool should_stop(void *userdata)
+{
+	(void)userdata;
+	return stop_requested != 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -189,18 +217,19 @@ static void signal_handler(int sig)
 static void print_usage(void)
 {
 	fprintf(stderr,
-	        "Usage: ssp-connector --host HOST --port PORT "
-	        "[--stream 0|1|2] [--uuid UUID]\n"
-	        "\n"
-	        "Native SSP (Simple Stream Protocol) client for Z CAM cameras.\n"
-	        "Outputs video/audio frames to stdout for the obs-ssp plugin.\n"
-	        "\n"
-	        "  --host, -h    Camera IP address\n"
-	        "  --port, -p    Camera SSP port (default: 9999)\n"
-	        "  --stream, -s  Stream style: 0=default, 1=main, 2=secondary\n"
-	        "  --uuid, -u    UUID (accepted for compatibility, unused)\n"
-	        "\n"
-	        "Version: %s\n", ssp_version_string());
+		"Usage: ssp-connector --host HOST --port PORT "
+		"[--stream 0|1|2] [--uuid UUID]\n"
+		"\n"
+		"Native SSP (Simple Stream Protocol) client for Z CAM cameras.\n"
+		"Outputs video/audio frames to stdout for the obs-ssp plugin.\n"
+		"\n"
+		"  --host, -h    Camera IP address\n"
+		"  --port, -p    Camera SSP port (default: 9999)\n"
+		"  --stream, -s  Stream style: 0=default, 1=main, 2=secondary\n"
+		"  --uuid, -u    UUID (accepted for compatibility, unused)\n"
+		"\n"
+		"Version: %s\n",
+		ssp_version_string());
 }
 
 int main(int argc, char **argv)
@@ -240,11 +269,18 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* Windows text mode would rewrite bytes in the packed IPC stream. */
+#ifdef _WIN32
+	if (_setmode(_fileno(stdout), _O_BINARY) == -1)
+		return 1;
+#endif
 	/* Unbuffered stdout for IPC pipe */
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(logfile, NULL, _IONBF, 0);
 
+#ifndef _WIN32
 	signal(SIGPIPE, SIG_IGN);
+#endif
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
@@ -261,20 +297,28 @@ int main(int argc, char **argv)
 	ssp_client_set_stream(g_client, stream_style);
 
 	ssp_callbacks_t cb = {
-		.on_metadata    = on_metadata,
-		.on_video       = on_video,
-		.on_audio       = on_audio,
-		.on_connected   = on_connected,
+		.on_metadata = on_metadata,
+		.on_video = on_video,
+		.on_audio = on_audio,
+		.on_connected = on_connected,
 		.on_disconnected = on_disconnected,
-		.userdata       = NULL,
+		.userdata = NULL,
+		.should_stop = should_stop,
 	};
 	ssp_client_set_callbacks(g_client, &cb);
+
+	/* The receiver requires this before any other IPC message, including errors. */
+	if (send_simple_msg(ConnectorOkMsg) < 0) {
+		ssp_client_destroy(g_client);
+		g_client = NULL;
+		return 1;
+	}
 
 	/* Connect and stream (blocks until stop or disconnect) */
 	int ret = ssp_client_connect(g_client);
 
-	if (ret < 0)
-		send_simple_msg(ExceptionMsg);
+	if (ret < 0 && !stop_requested)
+		send_exception(1, "SSP connection, authentication, or stream receive failed");
 
 	/* Send ConnectionConnected after successful handshake is now
 	 * handled inside the library via on_connected callback.
