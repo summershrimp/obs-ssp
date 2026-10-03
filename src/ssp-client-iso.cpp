@@ -129,19 +129,15 @@ using namespace std::placeholders;
 
 void SSPClientIso::doStart()
 {
-	struct dstr cmd;
-
-	dstr_init_copy(&cmd, ssp_connector_path.toStdString().c_str());
-	dstr_insert_ch(&cmd, 0, '\"');
-	dstr_cat(&cmd, "\" ");
-	dstr_cat(&cmd, "--host ");
-	dstr_cat(&cmd, this->ip.c_str());
-	dstr_cat(&cmd, " --port ");
-	dstr_cat(&cmd, "9999");
-
-	auto tpipe = os_process_pipe_create(cmd.array, "r");
-	blog(LOG_INFO, "Start ssp-connector at: %s", cmd.array);
-	dstr_free(&cmd);
+	auto executable = ssp_connector_path.toStdString();
+	auto *args = os_process_args_create(executable.c_str());
+	os_process_args_add_arg(args, "--host");
+	os_process_args_add_arg(args, this->ip.c_str());
+	os_process_args_add_arg(args, "--port");
+	os_process_args_add_arg(args, "9999");
+	auto tpipe = os_process_pipe_create2(args, "r");
+	os_process_args_destroy(args);
+	blog(LOG_INFO, "Start ssp-connector at: %s", executable.c_str());
 
 	if (!tpipe) {
 		blog(LOG_WARNING, "Start ssp-connector failed.");
@@ -163,9 +159,10 @@ void *SSPClientIso::ReceiveThread(void *arg)
 	auto pipe = th->pipe;
 	th->statusLock.unlock();
 
-#ifdef _WIN32
-	std::thread(dump_stderr, pipe).detach();
-#endif
+	struct LogReader {
+		std::thread thread;
+		~LogReader() { thread.join(); }
+	} log_reader{std::thread(dump_stderr, pipe)};
 
 	msg = msg_recv(pipe);
 	if (!msg) {
@@ -174,8 +171,10 @@ void *SSPClientIso::ReceiveThread(void *arg)
 	}
 	if (msg->type != MessageType::ConnectorOkMsg) {
 		blog(LOG_WARNING, "Protocol error !");
+		msg_free(msg);
 		return nullptr;
 	}
+	msg_free(msg);
 
 	while (th->running) {
 		msg = msg_recv(pipe);
@@ -203,9 +202,20 @@ void *SSPClientIso::ReceiveThread(void *arg)
 		case MessageType::ConnectionConnectedMsg:
 			th->OnConnectionConnected();
 			break;
-		case MessageType::ExceptionMsg:
-			th->OnException((Message *)msg->value);
+		case MessageType::ExceptionMsg: {
+			if (msg->length < sizeof(Message) + 1) {
+				blog(LOG_WARNING, "Invalid SSP exception message length");
+				break;
+			}
+			auto *error = (Message *)msg->value;
+			if (error->length == 0 || error->length > msg->length - sizeof(Message) ||
+			    !memchr(error->value, '\0', error->length)) {
+				blog(LOG_WARNING, "Invalid SSP exception description");
+				break;
+			}
+			th->OnException(error);
 			break;
+		}
 		default:
 			blog(LOG_WARNING, "Protocol error !");
 			break;
@@ -229,22 +239,26 @@ void SSPClientIso::Stop()
 	this->statusLock.lock();
 	this->running = false;
 
-	/* Kill the connector process first so its stdout closes,
-	 * which unblocks the fread() in the worker thread. Without
-	 * this, worker.join() deadlocks because the worker is stuck
-	 * in a blocking pipe read that never returns. */
+	/* Terminate before joining: the connector may also be blocked writing IPC.
+	 * POSIX SIGTERM handlers cannot reliably interrupt stdio writes. */
 	if (this->pipe) {
-		os_process_pipe_signal(this->pipe, SIGTERM);
+#ifdef _WIN32
+		os_process_pipe_signal(this->pipe, 0);
+#else
+		os_process_pipe_signal(this->pipe, SIGKILL);
+#endif
 	}
 
+	this->statusLock.unlock();
 	if (this->worker.joinable()) {
 		this->worker.join();
 	}
-	if (this->pipe) {
-		std::thread([=]() { os_process_pipe_destroy(this->pipe); }).detach();
-		this->pipe = nullptr;
-	}
+	this->statusLock.lock();
+	auto stopped_pipe = this->pipe;
+	this->pipe = nullptr;
 	this->statusLock.unlock();
+	if (stopped_pipe)
+		std::thread([stopped_pipe]() { os_process_pipe_destroy(stopped_pipe); }).detach();
 }
 
 void SSPClientIso::OnRecvBufferFull()

@@ -108,6 +108,10 @@ target_include_directories(
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_HEVC)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE FFmpeg::avcodec FFmpeg::avutil mdns)
 
+option(SSP_BUILD_TESTS "Build SSP protocol unit tests" OFF)
+if(SSP_BUILD_TESTS)
+  enable_testing()
+endif()
 add_subdirectory(ssp_connector)
 add_dependencies(${CMAKE_PROJECT_NAME} ssp-connector)
 
