@@ -231,7 +231,9 @@ void SSPClientIso::Stop()
 		this->worker.join();
 	}
 	if (this->pipe) {
-		os_process_pipe_destroy(this->pipe);
+		std::thread([=](){
+			os_process_pipe_destroy(this->pipe);
+		}).detach();
 		this->pipe = nullptr;
 	}
 	this->statusLock.unlock();
