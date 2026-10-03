@@ -13,8 +13,7 @@ class ThreadLoop {
 public:
 	typedef std::function<void(Loop *)> PreLoopCallback;
 	typedef std::function<ILoop_class *(void)> LoopCreater;
-	explicit ThreadLoop(const PreLoopCallback &pre = PreLoopCallback(),
-			    const LoopCreater &loop = LoopCreater())
+	explicit ThreadLoop(const PreLoopCallback &pre = PreLoopCallback(), const LoopCreater &loop = LoopCreater())
 		: preLoopCb_(pre),
 		  create_loop(loop),
 		  loop_(nullptr),
@@ -72,4 +71,4 @@ private:
 
 	DISALLOW_COPY_AND_ASSIGN(ThreadLoop);
 };
-}
+} // namespace imf
