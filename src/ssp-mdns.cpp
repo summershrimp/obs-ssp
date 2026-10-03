@@ -67,9 +67,6 @@ pthread_t mdns_thread;
 
 static char addrbuffer[64];
 static char namebuffer[256];
-static char sendbuffer[256];
-static char entrybuffer[256];
-static mdns_record_txt_t txtbuffer[128];
 
 std::map<std::string, mdns_record> ssp_records;
 std::mutex ssp_records_lock;
@@ -126,6 +123,14 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 			  size_t size, size_t name_offset, size_t name_length, size_t record_offset,
 			  size_t record_length, void *user_data)
 {
+	UNUSED_PARAMETER(sock);
+	UNUSED_PARAMETER(addrlen);
+	UNUSED_PARAMETER(entry);
+	UNUSED_PARAMETER(rclass);
+	UNUSED_PARAMETER(name_offset);
+	UNUSED_PARAMETER(name_length);
+	UNUSED_PARAMETER(user_data);
+
 	if (transaction_id != current_transaction_id) {
 		current_mdns_record.has_ptr = false;
 		current_mdns_record.has_a = false;
@@ -305,8 +310,8 @@ static int open_client_sockets(int *sockets, int max_sockets, int port)
 				}
 				if (log_addr) {
 					char buffer[128];
-					mdns_string_t addr = ipv4_address_to_string(buffer, sizeof(buffer), saddr,
-										    sizeof(struct sockaddr_in));
+					ipv4_address_to_string(buffer, sizeof(buffer), saddr,
+							       sizeof(struct sockaddr_in));
 				}
 			}
 		} else if (ifa->ifa_addr->sa_family == AF_INET6) {
@@ -335,8 +340,8 @@ static int open_client_sockets(int *sockets, int max_sockets, int port)
 				}
 				if (log_addr) {
 					char buffer[128];
-					mdns_string_t addr = ipv6_address_to_string(buffer, sizeof(buffer), saddr,
-										    sizeof(struct sockaddr_in6));
+					ipv6_address_to_string(buffer, sizeof(buffer), saddr,
+							       sizeof(struct sockaddr_in6));
 				}
 			}
 		}

@@ -49,16 +49,16 @@ char uuid[64] = {0};
 imf::SspClient *gSspClient = nullptr;
 imf::Loop *gLoop = nullptr;
 
-int msg_write(char *buf, size_t size)
+size_t msg_write(char *buf, size_t size)
 {
 	Message *msg = (Message *)buf;
-	size_t writed = 0, cur = 0;
+	size_t writed = 0;
 	//log_conn("send msg type: %d, size %d", msg->type, msg->length);
 	writed = fwrite(buf, 1, size, stdout);
 	fflush(stdout);
 	if (ferror(stdout)) {
 		log_conn("ferror on msg_write");
-		return -1;
+		return 0;
 	}
 	return writed;
 }
@@ -73,12 +73,10 @@ int process_args(int argc, char **argv)
 		if ((!strcmp(argv[t], "-h") || !strcmp(argv[t], "--host"))) {
 			++t;
 			strncpy(address, argv[t], sizeof(address));
-		} else if (!strcmp(argv[t], "-p") ||
-			   !strcmp(argv[t], "--port")) {
+		} else if (!strcmp(argv[t], "-p") || !strcmp(argv[t], "--port")) {
 			++t;
 			port = strtoul(argv[t], NULL, 0);
-		} else if (!strcmp(argv[t], "-u") ||
-			   !strcmp(argv[t], "--uuid")) {
+		} else if (!strcmp(argv[t], "-u") || !strcmp(argv[t], "--uuid")) {
 			++t;
 			strncpy(uuid, argv[t], sizeof(uuid));
 		} else {
@@ -96,8 +94,7 @@ int process_args(int argc, char **argv)
 
 void print_usage(void)
 {
-	fprintf(stderr,
-		"Usage: ssp_connector --host host --port port [--uuid uuid]");
+	fprintf(stderr, "Usage: ssp_connector --host host --port port [--uuid uuid]");
 }
 
 static void on_general_message(MessageType type)
@@ -105,7 +102,7 @@ static void on_general_message(MessageType type)
 	Message msg;
 	msg.length = 0;
 	msg.type = type;
-	int sz = msg_write((char *)&msg, sizeof(msg));
+	size_t sz = msg_write((char *)&msg, sizeof(msg));
 	if (sz != sizeof(msg)) {
 		log_conn("stopped.");
 		//gSspClient->stop();
@@ -115,10 +112,15 @@ static void on_general_message(MessageType type)
 
 static void on_video(imf::SspH264Data *video)
 {
+	if (video->len > UINT32_MAX - sizeof(VideoData)) {
+		log_conn("video payload exceeds IPC message limit.");
+		gLoop->quit();
+		return;
+	}
 	size_t len = sizeof(Message) + sizeof(VideoData) + video->len;
 	auto *msg = (Message *)malloc(len);
 	msg->type = VideoDataMsg;
-	msg->length = sizeof(VideoData) + video->len;
+	msg->length = static_cast<uint32_t>(sizeof(VideoData) + video->len);
 	auto *videoData = (VideoData *)msg->value;
 	videoData->frm_no = video->frm_no;
 	videoData->ntp_timestamp = video->ntp_timestamp;
@@ -126,7 +128,7 @@ static void on_video(imf::SspH264Data *video)
 	videoData->type = video->type;
 	videoData->len = video->len;
 	memcpy(videoData->data, video->data, video->len);
-	int sz = msg_write((char *)msg, len);
+	size_t sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
 		log_conn("stopped.");
@@ -137,17 +139,22 @@ static void on_video(imf::SspH264Data *video)
 
 static void on_audio(imf::SspAudioData *audio)
 {
+	if (audio->len > UINT32_MAX - sizeof(AudioData)) {
+		log_conn("audio payload exceeds IPC message limit.");
+		gLoop->quit();
+		return;
+	}
 	size_t len = sizeof(Message) + sizeof(AudioData) + audio->len;
 	auto *msg = (Message *)malloc(len);
 	msg->type = AudioDataMsg;
-	msg->length = sizeof(AudioData) + audio->len;
+	msg->length = static_cast<uint32_t>(sizeof(AudioData) + audio->len);
 	auto *audioData = (AudioData *)msg->value;
 	audioData->ntp_timestamp = audio->ntp_timestamp;
 	audioData->pts = audio->pts;
 	audioData->len = audio->len;
 	memcpy(audioData->data, audio->data, audio->len);
 
-	int sz = msg_write((char *)msg, len);
+	size_t sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
 		log_conn("stopped.");
@@ -155,8 +162,7 @@ static void on_audio(imf::SspAudioData *audio)
 		gLoop->quit();
 	}
 }
-static void on_meta(imf::SspVideoMeta *vmeta, struct imf::SspAudioMeta *ameta,
-		    struct imf::SspMeta *meta)
+static void on_meta(imf::SspVideoMeta *vmeta, struct imf::SspAudioMeta *ameta, struct imf::SspMeta *meta)
 {
 	size_t len = sizeof(Message) + sizeof(Metadata);
 	auto *msg = (Message *)malloc(len);
@@ -182,26 +188,31 @@ static void on_meta(imf::SspVideoMeta *vmeta, struct imf::SspAudioMeta *ameta,
 	metadata->meta.tc_drop_frame = meta->tc_drop_frame;
 	metadata->meta.timecode = meta->timecode;
 
-	int sz = msg_write((char *)msg, len);
+	size_t sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
-		log_conn("stopped sz != len %d != %d.", sz, len);
+		log_conn("stopped sz != len %zu != %zu.", sz, len);
 		//gSspClient->stop();
 		gLoop->quit();
 	}
 }
 static void on_exception(int code, const char *description)
 {
-	size_t len =
-		sizeof(Message) + sizeof(Message) + strlen(description) + 1;
+	size_t description_len = strlen(description);
+	if (description_len >= UINT32_MAX - sizeof(Message)) {
+		log_conn("exception payload exceeds IPC message limit.");
+		gLoop->quit();
+		return;
+	}
+	size_t len = sizeof(Message) + sizeof(Message) + description_len + 1;
 	auto *msg = (Message *)malloc(len);
 	msg->type = ExceptionMsg;
-	msg->length = sizeof(Message) + strlen(description) + 1;
+	msg->length = static_cast<uint32_t>(sizeof(Message) + description_len + 1);
 	auto *errmsg = (Message *)msg->value;
-	errmsg->length = strlen(description) + 1;
+	errmsg->length = static_cast<uint32_t>(description_len + 1);
 	errmsg->type = code;
 	strcpy((char *)errmsg->value, description);
-	int sz = msg_write((char *)msg, len);
+	size_t sz = msg_write((char *)msg, len);
 	free(msg);
 	if (sz != len) {
 		log_conn("exception error.");
@@ -220,10 +231,8 @@ static void setup(imf::Loop *loop)
 	client->setOnMetaCallback(on_meta);
 	client->setOnAudioDataCallback(on_audio);
 	client->setOnExceptionCallback(on_exception);
-	client->setOnConnectionConnectedCallback(
-		std::bind(on_general_message, ConnectionConnectedMsg));
-	client->setOnRecvBufferFullCallback(
-		std::bind(on_general_message, RecvBufferFullMsg));
+	client->setOnConnectionConnectedCallback(std::bind(on_general_message, ConnectionConnectedMsg));
+	client->setOnRecvBufferFullCallback(std::bind(on_general_message, RecvBufferFullMsg));
 	client->setOnDisconnectedCallback([=]() {
 		on_general_message(DisconnectMsg);
 		//client->stop();
@@ -234,7 +243,7 @@ static void setup(imf::Loop *loop)
 	Message msg;
 	msg.length = 0;
 	msg.type = ConnectorOkMsg;
-	int sz = msg_write((char *)&msg, sizeof(msg));
+	size_t sz = msg_write((char *)&msg, sizeof(msg));
 
 	if (sz != sizeof(msg)) {
 		log_conn("stopped.");

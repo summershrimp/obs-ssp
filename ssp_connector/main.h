@@ -26,9 +26,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- #ifndef logfile
- #define logfile stderr
- #endif
+#ifndef logfile
+#define logfile stderr
+#endif
 
 #define log_conn(fmt, ...) \
 	fprintf(logfile, "%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
