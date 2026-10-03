@@ -76,6 +76,14 @@ set(
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${obs-ssp_SOURCES} ${obs-ssp_HEADERS})
 
+# Keep legacy decoder warnings visible without requiring changes to the excluded source.
+set_source_files_properties(
+  src/ffmpeg-decode.c
+  PROPERTIES
+    COMPILE_OPTIONS
+      "$<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-error=switch>;$<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-error=newline-eof>"
+)
+
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 
 # --- Platform-independent build settings ---
