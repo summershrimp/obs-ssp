@@ -30,7 +30,7 @@ extern "C" {
 #include <ssp_connector_proto.h>
 
 #ifdef _WIN64
-#define SSP_CONNECTOR "../../obs-plugins/" OBS_SSP_BITSTR "/ssp-connector.exe"
+#define SSP_CONNECTOR "ssp-connector.exe"
 #else
 #define SSP_CONNECTOR "ssp-connector"
 #endif
@@ -41,15 +41,12 @@ class SSPClientIso : public QObject {
 public:
 	SSPClientIso(const std::string &ip, uint32_t bufferSize);
 
-	virtual void
-	setOnRecvBufferFullCallback(const imf::OnRecvBufferFullCallback &cb);
+	virtual void setOnRecvBufferFullCallback(const imf::OnRecvBufferFullCallback &cb);
 	virtual void setOnH264DataCallback(const imf::OnH264DataCallback &cb);
 	virtual void setOnAudioDataCallback(const imf::OnAudioDataCallback &cb);
 	virtual void setOnMetaCallback(const imf::OnMetaCallback &cb);
-	virtual void
-	setOnDisconnectedCallback(const imf::OnDisconnectedCallback &cb);
-	virtual void setOnConnectionConnectedCallback(
-		const imf::OnConnectionConnectedCallback &cb);
+	virtual void setOnDisconnectedCallback(const imf::OnDisconnectedCallback &cb);
+	virtual void setOnConnectionConnectedCallback(const imf::OnConnectionConnectedCallback &cb);
 	virtual void setOnExceptionCallback(const imf::OnExceptionCallback &cb);
 	void Stop();
 	void Restart();

@@ -14,16 +14,16 @@
 
 Run commands from the repository root. Initialize dependencies with `git submodule update --init --recursive`.
 
-- Windows: `pwsh -File .github/scripts/Build-Windows.ps1 -Target x64 -Configuration RelWithDebInfo` prepares dependencies, builds, and stages files in `release/RelWithDebInfo/`. Requires PowerShell 7 and Visual Studio 2022.
-- Windows incremental build: `cmake --preset windows-x64`, then `cmake --build --preset windows-x64`.
+- Windows: `cmake --preset windows-x64`, then `cmake --build --preset windows-x64`. Requires CMake 3.30+, Visual Studio 2022, and Windows SDK 10.0.22621.
+- Windows staging: `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo`. `.github/scripts/Build-Windows.ps1` is CI-only and requires PowerShell 7.2+.
 - macOS: `cmake --preset macos`, then `cmake --build --preset macos`; uses Xcode and produces a universal build.
-- Format changed C/C++ files with `clang-format -i src/path.cpp`; check with `clang-format --dry-run --Werror src/path.cpp`. Use version 13 to match CI.
+- Format changed C/C++ files with `clang-format -i src/path.cpp`; check with `clang-format --dry-run --Werror src/path.cpp`. Use version 19 to match CI.
 
-The build requires libobs, Qt 6, FFmpeg, and fetched libssp. Linux presets exist, but connector library linkage currently covers Windows and macOS only.
+The build requires libobs, Qt 6, FFmpeg, and fetched libssp. Ubuntu presets exist, but connector library linkage currently covers Windows and macOS only; Ubuntu CI remains disabled.
 
 ## Coding Style & Naming Conventions
 
-Use C++17 and follow neighboring code. `.clang-format` specifies tabs with width 8, an 80-column limit, and function braces on separate lines. Use PascalCase for classes, snake_case for C/OBS functions, and existing camelCase conventions in Qt controllers. Match adjacent filenames. Format CMake with `cmake-format`, using `.cmake-format.json` (two-space indentation); its CI check is currently disabled.
+Use C17/C++17 and follow neighboring code. `.clang-format` specifies tabs with width 8, a 120-column limit, and function braces on separate lines. Use PascalCase for classes, snake_case for C/OBS functions, and existing camelCase conventions in Qt controllers. Match adjacent filenames. Format CMake with `gersemi -i CMakeLists.txt`, using `.gersemirc` (two-space indentation); CI checks both formatters.
 
 ## Testing Guidelines
 
