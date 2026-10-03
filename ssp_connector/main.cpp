@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string>
 
 #ifdef _WIN32
@@ -51,9 +52,7 @@ imf::Loop *gLoop = nullptr;
 
 size_t msg_write(char *buf, size_t size)
 {
-	Message *msg = (Message *)buf;
 	size_t writed = 0;
-	//log_conn("send msg type: %d, size %d", msg->type, msg->length);
 	writed = fwrite(buf, 1, size, stdout);
 	fflush(stdout);
 	if (ferror(stdout)) {
@@ -75,7 +74,11 @@ int process_args(int argc, char **argv)
 			strncpy(address, argv[t], sizeof(address));
 		} else if (!strcmp(argv[t], "-p") || !strcmp(argv[t], "--port")) {
 			++t;
-			port = strtoul(argv[t], NULL, 0);
+			unsigned long parsed_port = strtoul(argv[t], NULL, 0);
+			if (parsed_port > UINT_MAX) {
+				return -1;
+			}
+			port = static_cast<unsigned int>(parsed_port);
 		} else if (!strcmp(argv[t], "-u") || !strcmp(argv[t], "--uuid")) {
 			++t;
 			strncpy(uuid, argv[t], sizeof(uuid));

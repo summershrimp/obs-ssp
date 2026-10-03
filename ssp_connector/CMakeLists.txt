@@ -10,7 +10,7 @@ FetchContent_Declare(
 if(NOT libssp_POPULATED)
   FetchContent_MakeAvailable(libssp)
   add_library(libssp INTERFACE)
-  target_include_directories(libssp INTERFACE ${libssp_SOURCE_DIR}/include)
+  target_include_directories(libssp SYSTEM INTERFACE ${libssp_SOURCE_DIR}/include)
   if(OS_WINDOWS)
     target_link_libraries(libssp INTERFACE "${libssp_SOURCE_DIR}/lib/win_x64_vs2017/libssp$<$<CONFIG:Debug>:d>.lib")
     set(LIBSSP_LIBRARY "${libssp_SOURCE_DIR}/lib/win_x64_vs2017/libssp$<$<CONFIG:Debug>:d>.dll" PARENT_SCOPE)
@@ -42,7 +42,7 @@ set(SSP_CONNECTOR_SOURCE main.cpp)
 
 add_executable(ssp-connector ${SSP_CONNECTOR_SOURCE})
 target_link_libraries(ssp-connector PRIVATE libssp)
-target_include_directories(ssp-connector PRIVATE libuv/include)
+target_include_directories(ssp-connector SYSTEM PRIVATE libuv/include)
 
 if(OS_WINDOWS)
   target_compile_definitions(ssp-connector PRIVATE _CRT_SECURE_NO_WARNINGS)
