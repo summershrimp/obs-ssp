@@ -29,7 +29,14 @@
 #ifndef SSP_CONNECTOR_PROTO_H_
 #define SSP_CONNECTOR_PROTO_H_
 
+#include <stddef.h>
 #include <stdint.h>
+
+#ifdef _MSC_VER
+// Trailing payload arrays are part of the existing packed IPC wire format.
+#pragma warning(push)
+#pragma warning(disable : 4200)
+#endif
 
 #pragma pack(1)
 
@@ -100,5 +107,9 @@ struct Message {
 };
 
 #pragma pack()
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

@@ -23,7 +23,7 @@ The build requires libobs, Qt 6, FFmpeg, and fetched libssp. Ubuntu presets exis
 
 ## Coding Style & Naming Conventions
 
-Use C17/C++17 and follow neighboring code. `.clang-format` specifies tabs with width 8, a 120-column limit, and function braces on separate lines. Use PascalCase for classes, snake_case for C/OBS functions, and existing camelCase conventions in Qt controllers. Match adjacent filenames. Format CMake with `gersemi -i CMakeLists.txt`, using `.gersemirc` (two-space indentation); CI checks both formatters.
+Use C17/C++17 and follow neighboring code. `.clang-format` specifies tabs with width 8, a 120-column limit, and function braces on separate lines. Use PascalCase for classes, snake_case for C/OBS functions, and existing camelCase conventions in Qt controllers. Match adjacent filenames. Format CMake with gersemi 0.21.0 (`gersemi -i CMakeLists.txt`), using `.gersemirc` (two-space indentation); CI checks both formatters.
 
 ## Testing Guidelines
 
