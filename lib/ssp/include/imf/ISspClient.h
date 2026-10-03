@@ -62,21 +62,16 @@ struct LIBSSP_API SspAudioData {
 	uint64_t ntp_timestamp;
 };
 
-typedef std::function<void(void)>
-	OnRecvBufferFullCallback; // called when the recv buffer is full
-typedef std::function<void(void)>
-	OnDisconnectedCallback; // called when the session is closed
-typedef std::function<void(void)>
-	OnConnectionConnectedCallback; // called when the session is est
+typedef std::function<void(void)> OnRecvBufferFullCallback;      // called when the recv buffer is full
+typedef std::function<void(void)> OnDisconnectedCallback;        // called when the session is closed
+typedef std::function<void(void)> OnConnectionConnectedCallback; // called when the session is est
 typedef std::function<void(struct SspH264Data *h264)>
 	OnH264DataCallback; // called every video frame is ready. Actually, it's a video callback, no matter it's compression format
-typedef std::function<void(struct SspAudioData *audio)>
-	OnAudioDataCallback; // called every audio frame is ready
+typedef std::function<void(struct SspAudioData *audio)> OnAudioDataCallback; // called every audio frame is ready
 typedef std::function<void(struct SspVideoMeta *, struct SspAudioMeta *,
 			   struct SspMeta *)>
-	OnMetaCallback; // meta data callback
-typedef std::function<void(int code, const char *description)>
-	OnExceptionCallback; // exception
+	OnMetaCallback;                                                             // meta data callback
+typedef std::function<void(int code, const char *description)> OnExceptionCallback; // exception
 
 class Loop;
 class ISspClient_class {
@@ -86,15 +81,12 @@ public:
 	virtual int start(void) = 0;
 	virtual int stop(void) = 0;
 
-	virtual void
-	setOnRecvBufferFullCallback(const OnRecvBufferFullCallback &cb) = 0;
+	virtual void setOnRecvBufferFullCallback(const OnRecvBufferFullCallback &cb) = 0;
 	virtual void setOnH264DataCallback(const OnH264DataCallback &cb) = 0;
 	virtual void setOnAudioDataCallback(const OnAudioDataCallback &cb) = 0;
 	virtual void setOnMetaCallback(const OnMetaCallback &cb) = 0;
-	virtual void
-	setOnDisconnectedCallback(const OnDisconnectedCallback &cb) = 0;
-	virtual void setOnConnectionConnectedCallback(
-		const OnConnectionConnectedCallback &cb) = 0;
+	virtual void setOnDisconnectedCallback(const OnDisconnectedCallback &cb) = 0;
+	virtual void setOnConnectionConnectedCallback(const OnConnectionConnectedCallback &cb) = 0;
 	virtual void setOnExceptionCallback(const OnExceptionCallback &cb) = 0;
 };
 
@@ -106,11 +98,8 @@ public:
 	virtual int quit(void) = 0;
 	virtual void *getLoop(void) = 0;
 };
-}
+} // namespace imf
 
-typedef imf::ISspClient_class *(*create_ssp_class_ptr)(const std::string &ip,
-						       imf::Loop *loop,
-						       size_t bufSize,
-						       unsigned short port,
-						       uint32_t streamStyle);
+typedef imf::ISspClient_class *(*create_ssp_class_ptr)(const std::string &ip, imf::Loop *loop, size_t bufSize,
+						       unsigned short port, uint32_t streamStyle);
 typedef imf::ILoop_class *(*create_loop_class_ptr)();
