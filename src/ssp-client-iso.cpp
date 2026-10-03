@@ -59,7 +59,7 @@ static Message *msg_recv(os_process_pipe *pipe)
 	}
 	sz = os_process_pipe_read_retry(pipe, (uint8_t *)msg, sizeof(Message));
 	if (sz != sizeof(Message)) {
-		ssp_blog(LOG_WARNING, "pipe protocol header error, recv: %d!", sz);
+		ssp_blog(LOG_WARNING, "pipe protocol header error, recv: %zu!", sz);
 		bfree(msg);
 		return nullptr;
 	}
@@ -73,7 +73,7 @@ static Message *msg_recv(os_process_pipe *pipe)
 	//ssp_blog(LOG_INFO, "receive msg type: %d, size: %d", msg_all->type, msg_all->length);
 	sz = os_process_pipe_read_retry(pipe, msg_all->value, msg_all->length);
 	if (sz != msg_all->length) {
-		ssp_blog(LOG_WARNING, "pipe protocol body error, recv: %d!", sz);
+		ssp_blog(LOG_WARNING, "pipe protocol body error, recv: %zu!", sz);
 		bfree(msg_all);
 		return nullptr;
 	}
