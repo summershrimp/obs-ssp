@@ -141,8 +141,7 @@ static void ssp_stop(ssp_source *s);
 static void ssp_start(ssp_source *s);
 void *thread_ssp_reconnect(void *data);
 
-static void ssp_video_data_enqueue(struct imf::SspH264Data *video,
-				   ssp_connection *s)
+static void ssp_video_data_enqueue(struct imf::SspH264Data *video, ssp_connection *s)
 {
 	if (!s->running) {
 		return;
@@ -159,12 +158,9 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 		return;
 	}
 	if (!ffmpeg_decode_valid(&s->vdecoder)) {
-		assert(s->vformat == AV_CODEC_ID_H264 ||
-		       s->vformat == AV_CODEC_ID_HEVC);
-		if (ffmpeg_decode_init(&s->vdecoder, s->vformat, s->hwaccel) <
-		    0) {
-			ssp_blog(LOG_WARNING,
-				 "Could not initialize video decoder");
+		assert(s->vformat == AV_CODEC_ID_H264 || s->vformat == AV_CODEC_ID_HEVC);
+		if (ffmpeg_decode_init(&s->vdecoder, s->vformat, s->hwaccel) < 0) {
+			ssp_blog(LOG_WARNING, "Could not initialize video decoder");
 			return;
 		}
 	}
@@ -178,10 +174,8 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 
 	int64_t ts = video->pts;
 	bool got_output;
-	bool success = ffmpeg_decode_video(&s->vdecoder, video->data,
-					   video->len, &ts, VIDEO_CS_DEFAULT,
-					   VIDEO_RANGE_PARTIAL, &s->frame,
-					   &got_output);
+	bool success = ffmpeg_decode_video(&s->vdecoder, video->data, video->len, &ts, VIDEO_CS_DEFAULT,
+					   VIDEO_RANGE_PARTIAL, &s->frame, &got_output);
 	if (!success) {
 		ssp_blog(LOG_WARNING, "Error decoding video");
 		return;
@@ -199,16 +193,14 @@ static void ssp_on_video_data(struct imf::SspH264Data *video, ssp_connection *s)
 	}
 }
 
-static void ssp_on_audio_data(struct imf::SspAudioData *audio,
-			      ssp_connection *s)
+static void ssp_on_audio_data(struct imf::SspAudioData *audio, ssp_connection *s)
 {
 	if (!s->running) {
 		return;
 	}
 	if (!ffmpeg_decode_valid(&s->adecoder)) {
 		if (ffmpeg_decode_init(&s->adecoder, s->aformat, false) < 0) {
-			ssp_blog(LOG_WARNING,
-				 "Could not initialize audio decoder");
+			ssp_blog(LOG_WARNING, "Could not initialize audio decoder");
 			return;
 		}
 	}
@@ -216,8 +208,7 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio,
 	size_t size = audio->len;
 	bool got_output = false;
 	do {
-		bool success = ffmpeg_decode_audio(&s->adecoder, data, size,
-						   &s->audio, &got_output);
+		bool success = ffmpeg_decode_audio(&s->adecoder, data, size, &s->audio, &got_output);
 		if (!success) {
 			ssp_blog(LOG_WARNING, "Error decoding audio");
 			return;
@@ -226,12 +217,9 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio,
 			if (s->sync_mode == PROP_SYNC_INTERNAL) {
 				s->audio.timestamp = os_gettime_ns();
 				s->audio.timestamp +=
-					((uint64_t)s->audio.samples_per_sec *
-					 1000000000ULL /
-					 (uint64_t)s->sample_size);
+					((uint64_t)s->audio.samples_per_sec * 1000000000ULL / (uint64_t)s->sample_size);
 			} else {
-				s->audio.timestamp =
-					(uint64_t)audio->pts * 1000;
+				s->audio.timestamp = (uint64_t)audio->pts * 1000;
 			}
 			obs_source_output_audio(s->source, &s->audio);
 		} else {
@@ -243,31 +231,23 @@ static void ssp_on_audio_data(struct imf::SspAudioData *audio,
 	} while (got_output);
 }
 
-static void ssp_on_meta_data(struct imf::SspVideoMeta *v,
-			     struct imf::SspAudioMeta *a,
-			     struct imf::SspMeta *m, ssp_connection *s)
+static void ssp_on_meta_data(struct imf::SspVideoMeta *v, struct imf::SspAudioMeta *a, struct imf::SspMeta *m,
+			     ssp_connection *s)
 {
-	ssp_blog(
-		LOG_INFO,
-		"ssp v meta: encoder: %u, gop:%u, height:%u, timescale:%u, unit:%u, width:%u",
-		v->encoder, v->gop, v->height, v->timescale, v->unit, v->width);
+	ssp_blog(LOG_INFO, "ssp v meta: encoder: %u, gop:%u, height:%u, timescale:%u, unit:%u, width:%u", v->encoder,
+		 v->gop, v->height, v->timescale, v->unit, v->width);
 	ssp_blog(
 		LOG_INFO,
 		"ssp a meta: uinit: %u, timescale:%u, encoder:%u, bitrate:%u, channel:%u, sample_rate:%u, sample_size:%u",
-		a->unit, a->timescale, a->encoder, a->bitrate, a->channel,
-		a->sample_rate, a->sample_size);
-	ssp_blog(
-		LOG_INFO,
-		"ssp i meta: pts_is_wall_clock: %u, tc_drop_frame:%u, timecode:%u,",
-		m->pts_is_wall_clock, m->tc_drop_frame, m->timecode);
-	s->vformat = v->encoder == VIDEO_ENCODER_H264 ? AV_CODEC_ID_H264
-						      : AV_CODEC_ID_H265;
+		a->unit, a->timescale, a->encoder, a->bitrate, a->channel, a->sample_rate, a->sample_size);
+	ssp_blog(LOG_INFO, "ssp i meta: pts_is_wall_clock: %u, tc_drop_frame:%u, timecode:%u,", m->pts_is_wall_clock,
+		 m->tc_drop_frame, m->timecode);
+	s->vformat = v->encoder == VIDEO_ENCODER_H264 ? AV_CODEC_ID_H264 : AV_CODEC_ID_H265;
 	s->frame.width = v->width;
 	s->frame.height = v->height;
 	s->sample_size = a->sample_size;
 	s->audio.samples_per_sec = a->sample_rate;
-	s->aformat = a->encoder == AUDIO_ENCODER_AAC ? AV_CODEC_ID_AAC
-						     : AV_CODEC_ID_NONE;
+	s->aformat = a->encoder == AUDIO_ENCODER_AAC ? AV_CODEC_ID_AAC : AV_CODEC_ID_NONE;
 }
 
 static void ssp_on_disconnected(ssp_connection *s)
@@ -276,15 +256,14 @@ static void ssp_on_disconnected(ssp_connection *s)
 	pthread_t thread;
 	if (s->running) {
 		ssp_blog(LOG_INFO, "still running, reconnect...");
-		pthread_create(&thread, nullptr, thread_ssp_reconnect,
-			       (void *)s);
+		pthread_create(&thread, nullptr, thread_ssp_reconnect, (void *)s);
 		pthread_detach(thread);
 	}
 }
 
-static void ssp_on_exception(int code, const char *description,
-			     ssp_connection *s)
+static void ssp_on_exception(int code, const char *description, ssp_connection *s)
 {
+	UNUSED_PARAMETER(s);
 	ssp_blog(LOG_ERROR, "ssp exception %d: %s", code, description);
 	//s->running = false;
 }
@@ -364,16 +343,12 @@ static void ssp_conn_start(ssp_connection *s)
 	}
 	pthread_mutex_lock(&s->lck);
 	s->client = new SSPClientIso(ip, s->bitrate / 8);
-	s->client->setOnH264DataCallback(
-		std::bind(ssp_video_data_enqueue, _1, s));
+	s->client->setOnH264DataCallback(std::bind(ssp_video_data_enqueue, _1, s));
 	s->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, s));
-	s->client->setOnMetaCallback(
-		std::bind(ssp_on_meta_data, _1, _2, _3, s));
-	s->client->setOnConnectionConnectedCallback(
-		[]() { ssp_blog(LOG_INFO, "ssp connected."); });
+	s->client->setOnMetaCallback(std::bind(ssp_on_meta_data, _1, _2, _3, s));
+	s->client->setOnConnectionConnectedCallback([]() { ssp_blog(LOG_INFO, "ssp connected."); });
 	s->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, s));
-	s->client->setOnExceptionCallback(
-		std::bind(ssp_on_exception, _1, _2, s));
+	s->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, s));
 
 	assert(s->queue == nullptr);
 	s->queue = new VFrameQueue;
@@ -430,18 +405,12 @@ void *thread_ssp_reconnect(void *data)
 		return nullptr;
 	}
 	conn->client = new SSPClientIso(ip, conn->bitrate / 8);
-	conn->client->setOnH264DataCallback(
-		std::bind(ssp_video_data_enqueue, _1, conn));
-	conn->client->setOnAudioDataCallback(
-		std::bind(ssp_on_audio_data, _1, conn));
-	conn->client->setOnMetaCallback(
-		std::bind(ssp_on_meta_data, _1, _2, _3, conn));
-	conn->client->setOnConnectionConnectedCallback(
-		[]() { ssp_blog(LOG_INFO, "ssp connected."); });
-	conn->client->setOnDisconnectedCallback(
-		std::bind(ssp_on_disconnected, conn));
-	conn->client->setOnExceptionCallback(
-		std::bind(ssp_on_exception, _1, _2, conn));
+	conn->client->setOnH264DataCallback(std::bind(ssp_video_data_enqueue, _1, conn));
+	conn->client->setOnAudioDataCallback(std::bind(ssp_on_audio_data, _1, conn));
+	conn->client->setOnMetaCallback(std::bind(ssp_on_meta_data, _1, _2, _3, conn));
+	conn->client->setOnConnectionConnectedCallback([]() { ssp_blog(LOG_INFO, "ssp connected."); });
+	conn->client->setOnDisconnectedCallback(std::bind(ssp_on_disconnected, conn));
+	conn->client->setOnExceptionCallback(std::bind(ssp_on_exception, _1, _2, conn));
 
 	assert(conn->queue == nullptr);
 	conn->queue = new VFrameQueue;
@@ -457,8 +426,7 @@ void *thread_ssp_reconnect(void *data)
 
 static obs_source_frame *blank_video_frame()
 {
-	obs_source_frame *frame =
-		obs_source_frame_create(VIDEO_FORMAT_NONE, 0, 0);
+	obs_source_frame *frame = obs_source_frame_create(VIDEO_FORMAT_NONE, 0, 0);
 	frame->timestamp = os_gettime_ns();
 	return frame;
 }
@@ -469,17 +437,14 @@ const char *ssp_source_getname(void *data)
 	return obs_module_text("SSPPlugin.SSPSourceName");
 }
 
-bool source_ip_modified(void *data, obs_properties_t *props,
-			obs_property_t *property, obs_data_t *settings)
+bool source_ip_modified(void *data, obs_properties_t *props, obs_property_t *property, obs_data_t *settings)
 {
 	auto s = (struct ssp_source *)data;
 	const char *source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
 	s->ip_checked = false;
 	if (strcmp(source_ip, PROP_CUSTOM_VALUE) == 0) {
-		obs_property_t *custom_ip =
-			obs_properties_get(props, PROP_CUSTOM_SOURCE_IP);
-		obs_property_t *check_ip =
-			obs_properties_get(props, PROP_CHECK_IP);
+		obs_property_t *custom_ip = obs_properties_get(props, PROP_CUSTOM_SOURCE_IP);
+		obs_property_t *check_ip = obs_properties_get(props, PROP_CHECK_IP);
 		obs_property_set_visible(property, false);
 		obs_property_set_visible(custom_ip, true);
 		obs_property_set_visible(check_ip, true);
@@ -498,10 +463,11 @@ bool source_ip_modified(void *data, obs_properties_t *props,
 	return false;
 }
 
-static bool custom_ip_modify_callback(void *data, obs_properties_t *props,
-				      obs_property_t *property,
+static bool custom_ip_modify_callback(void *data, obs_properties_t *props, obs_property_t *property,
 				      obs_data_t *settings)
 {
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
 	auto s = (struct ssp_source *)data;
 	if (s->ip_checked || !s->do_check) {
 		s->ip_checked = false;
@@ -526,10 +492,10 @@ static bool custom_ip_modify_callback(void *data, obs_properties_t *props,
 	return false;
 }
 
-static bool resolution_modify_callback(void *data, obs_properties_t *props,
-				       obs_property_t *property,
+static bool resolution_modify_callback(void *data, obs_properties_t *props, obs_property_t *property,
 				       obs_data_t *settings)
 {
+	UNUSED_PARAMETER(property);
 
 	auto s = (struct ssp_source *)data;
 	auto framerates = obs_properties_get(props, PROP_FRAME_RATE);
@@ -542,20 +508,19 @@ static bool resolution_modify_callback(void *data, obs_properties_t *props,
 	auto resolution = obs_data_get_string(settings, PROP_RESOLUTION);
 	obs_property_list_add_string(framerates, "25 fps", "25");
 	obs_property_list_add_string(framerates, "30 fps", "29.97");
-	ssp_blog(LOG_INFO, "Camera model: %s",
-		 s->cameraStatus->model.toStdString().c_str());
+	ssp_blog(LOG_INFO, "Camera model: %s", s->cameraStatus->model.toStdString().c_str());
 	if (strcmp(resolution, "1920*1080") != 0 ||
-	    !s->cameraStatus->model.contains(E2C_MODEL_CODE,
-					     Qt::CaseInsensitive)) {
+	    !s->cameraStatus->model.contains(E2C_MODEL_CODE, Qt::CaseInsensitive)) {
 		obs_property_list_add_string(framerates, "50 fps", "50");
 		obs_property_list_add_string(framerates, "60 fps", "59.94");
 	}
 	return true;
 }
 
-static bool check_ip_callback(obs_properties_t *props, obs_property_t *property,
-			      void *data)
+static bool check_ip_callback(obs_properties_t *props, obs_property_t *property, void *data)
 {
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
 	auto s = (struct ssp_source *)data;
 	s->do_check = true;
 	obs_source_update_properties(s->source);
@@ -570,21 +535,17 @@ obs_properties_t *ssp_source_getproperties(void *data)
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
-	obs_property_t *source_ip = obs_properties_add_list(
-		props, PROP_SOURCE_IP,
-		obs_module_text("SSPPlugin.SourceProps.SourceIp"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *source_ip = obs_properties_add_list(props, PROP_SOURCE_IP,
+							    obs_module_text("SSPPlugin.SourceProps.SourceIp"),
+							    OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
-	snprintf(nametext, 256, "%s (%s)",
-		 obs_module_text("SSPPlugin.IP.Fixed"), SSP_IP_DIRECT);
+	snprintf(nametext, 256, "%s (%s)", obs_module_text("SSPPlugin.IP.Fixed"), SSP_IP_DIRECT);
 	obs_property_list_add_string(source_ip, nametext, SSP_IP_DIRECT);
 
-	snprintf(nametext, 256, "%s (%s)", obs_module_text("SSPPlugin.IP.Wifi"),
-		 SSP_IP_WIFI);
+	snprintf(nametext, 256, "%s (%s)", obs_module_text("SSPPlugin.IP.Wifi"), SSP_IP_WIFI);
 	obs_property_list_add_string(source_ip, nametext, SSP_IP_WIFI);
 
-	snprintf(nametext, 256, "%s (%s)", obs_module_text("SSPPlugin.IP.USB"),
-		 SSP_IP_USB);
+	snprintf(nametext, 256, "%s (%s)", obs_module_text("SSPPlugin.IP.USB"), SSP_IP_USB);
 	obs_property_list_add_string(source_ip, nametext, SSP_IP_USB);
 
 	int count = 0;
@@ -595,113 +556,77 @@ obs_properties_t *ssp_source_getproperties(void *data)
 		if (item == nullptr) {
 			continue;
 		}
-		snprintf(nametext, 256, "%s (%s)", item->device_name.c_str(),
-			 item->ip_address.c_str());
-		obs_property_list_add_string(source_ip, nametext,
-					     item->ip_address.c_str());
+		snprintf(nametext, 256, "%s (%s)", item->device_name.c_str(), item->ip_address.c_str());
+		obs_property_list_add_string(source_ip, nametext, item->ip_address.c_str());
 		++count;
 	}
 
 	if (count == 0)
-		obs_property_list_add_string(
-			source_ip,
-			obs_module_text("SSPPlugin.SourceProps.NotFound"), "");
-	obs_property_list_add_string(
-		source_ip, obs_module_text("SSPPlugin.SourceProps.Custom"),
-		PROP_CUSTOM_VALUE);
+		obs_property_list_add_string(source_ip, obs_module_text("SSPPlugin.SourceProps.NotFound"), "");
+	obs_property_list_add_string(source_ip, obs_module_text("SSPPlugin.SourceProps.Custom"), PROP_CUSTOM_VALUE);
 
 	obs_property_t *custom_source_ip = obs_properties_add_text(
-		props, PROP_CUSTOM_SOURCE_IP,
-		obs_module_text("SSPPlugin.SourceProps.SourceIp"),
-		OBS_TEXT_DEFAULT);
+		props, PROP_CUSTOM_SOURCE_IP, obs_module_text("SSPPlugin.SourceProps.SourceIp"), OBS_TEXT_DEFAULT);
 
-	obs_property_t *no_check = obs_properties_add_bool(
-		props, PROP_NO_CHECK,
-		obs_module_text("SSPPlugin.SourceProps.DontCheck"));
+	obs_properties_add_bool(props, PROP_NO_CHECK, obs_module_text("SSPPlugin.SourceProps.DontCheck"));
 
 	obs_property_t *check_button = obs_properties_add_button2(
-		props, PROP_CHECK_IP,
-		obs_module_text("SSPPlugin.SourceProps.CheckIp"),
-		check_ip_callback, data);
+		props, PROP_CHECK_IP, obs_module_text("SSPPlugin.SourceProps.CheckIp"), check_ip_callback, data);
 
 	obs_property_set_visible(custom_source_ip, false);
 	obs_property_set_visible(check_button, false);
 
-	obs_property_set_modified_callback2(source_ip, source_ip_modified,
-					    data);
-	obs_property_set_modified_callback2(custom_source_ip,
-					    custom_ip_modify_callback, data);
+	obs_property_set_modified_callback2(source_ip, source_ip_modified, data);
+	obs_property_set_modified_callback2(custom_source_ip, custom_ip_modify_callback, data);
 
-	obs_property_t *sync_modes = obs_properties_add_list(
-		props, PROP_SYNC, obs_module_text("SSPPlugin.SourceProps.Sync"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_t *sync_modes = obs_properties_add_list(props, PROP_SYNC,
+							     obs_module_text("SSPPlugin.SourceProps.Sync"),
+							     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 
-	obs_property_list_add_int(
-		sync_modes, obs_module_text("SSPPlugin.SyncMode.Internal"),
-		PROP_SYNC_INTERNAL);
-	obs_property_list_add_int(
-		sync_modes, obs_module_text("SSPPlugin.SyncMode.SSPTimestamp"),
-		PROP_SYNC_SSP_TIMESTAMP);
+	obs_property_list_add_int(sync_modes, obs_module_text("SSPPlugin.SyncMode.Internal"), PROP_SYNC_INTERNAL);
+	obs_property_list_add_int(sync_modes, obs_module_text("SSPPlugin.SyncMode.SSPTimestamp"),
+				  PROP_SYNC_SSP_TIMESTAMP);
 
-	obs_properties_add_bool(
-		props, PROP_HW_ACCEL,
-		obs_module_text("SSPPlugin.SourceProps.HWAccel"));
+	obs_properties_add_bool(props, PROP_HW_ACCEL, obs_module_text("SSPPlugin.SourceProps.HWAccel"));
 
-	obs_property_t *latency_modes = obs_properties_add_list(
-		props, PROP_LATENCY,
-		obs_module_text("SSPPlugin.SourceProps.Latency"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_t *latency_modes = obs_properties_add_list(props, PROP_LATENCY,
+								obs_module_text("SSPPlugin.SourceProps.Latency"),
+								OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 
-	obs_property_list_add_int(
-		latency_modes,
-		obs_module_text("SSPPlugin.SourceProps.Latency.Normal"),
-		PROP_LATENCY_NORMAL);
-	obs_property_list_add_int(
-		latency_modes,
-		obs_module_text("SSPPlugin.SourceProps.Latency.Low"),
-		PROP_LATENCY_LOW);
+	obs_property_list_add_int(latency_modes, obs_module_text("SSPPlugin.SourceProps.Latency.Normal"),
+				  PROP_LATENCY_NORMAL);
+	obs_property_list_add_int(latency_modes, obs_module_text("SSPPlugin.SourceProps.Latency.Low"),
+				  PROP_LATENCY_LOW);
 
-	obs_property_t *encoders = obs_properties_add_list(
-		props, PROP_ENCODER,
-		obs_module_text("SSPPlugin.SourceProps.Encoder"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *encoders = obs_properties_add_list(props, PROP_ENCODER,
+							   obs_module_text("SSPPlugin.SourceProps.Encoder"),
+							   OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(encoders, "H264", "H264");
 	obs_property_list_add_string(encoders, "H265", "H265");
 
-	obs_properties_add_bool(
-		props, PROP_EXP_WAIT_I,
-		obs_module_text("SSPPlugin.SourceProps.WaitIFrame"));
+	obs_properties_add_bool(props, PROP_EXP_WAIT_I, obs_module_text("SSPPlugin.SourceProps.WaitIFrame"));
 
-	obs_property_t *resolutions = obs_properties_add_list(
-		props, PROP_RESOLUTION,
-		obs_module_text("SSPPlugin.SourceProps.Resolution"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *resolutions = obs_properties_add_list(props, PROP_RESOLUTION,
+							      obs_module_text("SSPPlugin.SourceProps.Resolution"),
+							      OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(resolutions, "4K-UHD", "3840*2160");
 	obs_property_list_add_string(resolutions, "4K-DCI", "4096*2160");
 	obs_property_list_add_string(resolutions, "1080p", "1920*1080");
 
-	obs_properties_add_bool(
-		props, PROP_LOW_NOISE,
-		obs_module_text("SSPPlugin.SourceProps.LowNoise"));
+	obs_properties_add_bool(props, PROP_LOW_NOISE, obs_module_text("SSPPlugin.SourceProps.LowNoise"));
 
-	obs_property_set_modified_callback2(resolutions,
-					    resolution_modify_callback, data);
+	obs_property_set_modified_callback2(resolutions, resolution_modify_callback, data);
 
-	obs_property_t *framerate = obs_properties_add_list(
-		props, PROP_FRAME_RATE,
-		obs_module_text("SSPPlugin.SourceProps.FrameRate"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *framerate = obs_properties_add_list(props, PROP_FRAME_RATE,
+							    obs_module_text("SSPPlugin.SourceProps.FrameRate"),
+							    OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
-	obs_properties_add_int(props, PROP_BITRATE,
-			       obs_module_text("SSPPlugin.SourceProps.Bitrate"),
-			       5, 300, 5);
+	obs_properties_add_int(props, PROP_BITRATE, obs_module_text("SSPPlugin.SourceProps.Bitrate"), 5, 300, 5);
 
-	obs_property_t *tally = obs_properties_add_bool(
-		props, PROP_LED_TALLY,
-		obs_module_text("SSPPlugin.SourceProps.LedAsTally"));
+	obs_property_t *tally =
+		obs_properties_add_bool(props, PROP_LED_TALLY, obs_module_text("SSPPlugin.SourceProps.LedAsTally"));
 
-	if (s->cameraStatus->model.contains(IPMANS_MODEL_CODE,
-					    Qt::CaseInsensitive)) {
+	if (s->cameraStatus->model.contains(IPMANS_MODEL_CODE, Qt::CaseInsensitive)) {
 		obs_property_set_visible(resolutions, false);
 		obs_property_set_visible(encoders, false);
 		obs_property_set_visible(framerate, false);
@@ -738,8 +663,7 @@ void ssp_source_update(void *data, obs_data_t *settings)
 	s->sync_mode = (int)obs_data_get_int(settings, PROP_SYNC);
 	source_ip = obs_data_get_string(settings, PROP_SOURCE_IP);
 	if (strcmp(source_ip, PROP_CUSTOM_VALUE) == 0) {
-		source_ip =
-			obs_data_get_string(settings, PROP_CUSTOM_SOURCE_IP);
+		source_ip = obs_data_get_string(settings, PROP_CUSTOM_SOURCE_IP);
 	}
 	if (strlen(source_ip) == 0) {
 		return;
@@ -753,8 +677,7 @@ void ssp_source_update(void *data, obs_data_t *settings)
 	// Set the IP of our camera from the configuration (used to build the url)
 	s->cameraStatus->setIp(s->source_ip);
 
-	const bool is_unbuffered =
-		(obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
+	const bool is_unbuffered = (obs_data_get_int(settings, PROP_LATENCY) == PROP_LATENCY_LOW);
 	obs_source_set_async_unbuffered(s->source, is_unbuffered);
 
 	s->wait_i_frame = obs_data_get_bool(settings, PROP_EXP_WAIT_I);
@@ -780,21 +703,15 @@ void ssp_source_update(void *data, obs_data_t *settings)
 	s->bitrate = bitrate;
 
 	ssp_blog(LOG_INFO, "Calling setStream on ssp source");
-	s->cameraStatus->setStream(
-		stream_index, resolution, low_noise, framerate, bitrate,
-		[=](bool ok, QString reason) {
-			if (!ok && !nocheck) {
-				blog(LOG_INFO, "%s",
-				     QString("setStream failed, not starting ssp: %1")
-					     .arg(reason)
-					     .toStdString()
-					     .c_str());
-				return;
-			}
-			ssp_blog(LOG_INFO,
-				 "Set stream succeeded, starting ssp");
-			ssp_start(s);
-		});
+	s->cameraStatus->setStream(stream_index, resolution, low_noise, framerate, bitrate, [=](bool ok, QString reason) {
+		if (!ok && !nocheck) {
+			blog(LOG_INFO, "%s",
+			     QString("setStream failed, not starting ssp: %1").arg(reason).toStdString().c_str());
+			return;
+		}
+		ssp_blog(LOG_INFO, "Set stream succeeded, starting ssp");
+		ssp_start(s);
+	});
 }
 
 void ssp_source_shown(void *data)
@@ -817,11 +734,13 @@ void ssp_source_hidden(void *data)
 
 void ssp_source_activated(void *data)
 {
+	UNUSED_PARAMETER(data);
 	ssp_blog(LOG_INFO, "ssp source activated.");
 }
 
 void ssp_source_deactivated(void *data)
 {
+	UNUSED_PARAMETER(data);
 	ssp_blog(LOG_INFO, "ssp source deactivated.");
 }
 
@@ -859,9 +778,7 @@ struct obs_source_info create_ssp_source_info()
 	struct obs_source_info ssp_source_info = {};
 	ssp_source_info.id = "ssp_source";
 	ssp_source_info.type = OBS_SOURCE_TYPE_INPUT;
-	ssp_source_info.output_flags = OBS_SOURCE_ASYNC_VIDEO |
-				       OBS_SOURCE_AUDIO |
-				       OBS_SOURCE_DO_NOT_DUPLICATE;
+	ssp_source_info.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE;
 	ssp_source_info.get_name = ssp_source_getname;
 	ssp_source_info.get_properties = ssp_source_getproperties;
 	ssp_source_info.get_defaults = ssp_source_getdefaults;
