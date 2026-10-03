@@ -17,6 +17,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 */
 
 #include <obs.h>
+#include <obs-module.h>
 #include <util/dstr.h>
 #include <util/platform.h>
 
@@ -36,8 +37,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 #include "obs-ssp.h"
 #include "ssp-client-iso.h"
 
-static size_t os_process_pipe_read_retry(os_process_pipe *pipe, uint8_t *dst,
-					 size_t size)
+static size_t os_process_pipe_read_retry(os_process_pipe *pipe, uint8_t *dst, size_t size)
 {
 	size_t pos = 0, cur = 0;
 	while (pos < size) {
@@ -59,8 +59,7 @@ static Message *msg_recv(os_process_pipe *pipe)
 	}
 	sz = os_process_pipe_read_retry(pipe, (uint8_t *)msg, sizeof(Message));
 	if (sz != sizeof(Message)) {
-		ssp_blog(LOG_WARNING, "pipe protocol header error, recv: %d!",
-			 sz);
+		ssp_blog(LOG_WARNING, "pipe protocol header error, recv: %d!", sz);
 		bfree(msg);
 		return nullptr;
 	}
@@ -74,8 +73,7 @@ static Message *msg_recv(os_process_pipe *pipe)
 	//ssp_blog(LOG_INFO, "receive msg type: %d, size: %d", msg_all->type, msg_all->length);
 	sz = os_process_pipe_read_retry(pipe, msg_all->value, msg_all->length);
 	if (sz != msg_all->length) {
-		ssp_blog(LOG_WARNING, "pipe protocol body error, recv: %d!",
-			 sz);
+		ssp_blog(LOG_WARNING, "pipe protocol body error, recv: %d!", sz);
 		bfree(msg_all);
 		return nullptr;
 	}
@@ -94,8 +92,7 @@ static void *dump_stderr(os_process_pipe *pipe)
 	size_t sz;
 	char buf[1024];
 	while (true) {
-		sz = os_process_pipe_read_err(pipe, (uint8_t *)buf,
-					      sizeof(buf) - 1);
+		sz = os_process_pipe_read_err(pipe, (uint8_t *)buf, sizeof(buf) - 1);
 		if (sz == 0) {
 			break;
 		}
@@ -113,12 +110,14 @@ SSPClientIso::SSPClientIso(const std::string &ip, uint32_t bufferSize)
 	this->running = false;
 	this->pipe = nullptr;
 
-#if defined(__APPLE__)
+#if defined(_WIN64)
+	QFileInfo plugin_path(QString::fromUtf8(obs_get_module_binary_path(obs_current_module())));
+	ssp_connector_path = plugin_path.dir().filePath(QStringLiteral(SSP_CONNECTOR));
+#elif defined(__APPLE__)
 	Dl_info info;
 	dladdr((const void *)msg_free, &info);
 	QFileInfo plugin_path(info.dli_fname);
-	ssp_connector_path =
-		plugin_path.dir().filePath(QStringLiteral(SSP_CONNECTOR));
+	ssp_connector_path = plugin_path.dir().filePath(QStringLiteral(SSP_CONNECTOR));
 #else
 	ssp_connector_path = QStringLiteral(SSP_CONNECTOR);
 #endif
@@ -231,9 +230,7 @@ void SSPClientIso::Stop()
 		this->worker.join();
 	}
 	if (this->pipe) {
-		std::thread([=](){
-			os_process_pipe_destroy(this->pipe);
-		}).detach();
+		std::thread([=]() { os_process_pipe_destroy(this->pipe); }).detach();
 		this->pipe = nullptr;
 	}
 	this->statusLock.unlock();
@@ -305,8 +302,7 @@ void SSPClientIso::OnException(Message *exception)
 	this->exceptionCallback(exception->type, (char *)exception->value);
 }
 
-void SSPClientIso::setOnRecvBufferFullCallback(
-	const imf::OnRecvBufferFullCallback &cb)
+void SSPClientIso::setOnRecvBufferFullCallback(const imf::OnRecvBufferFullCallback &cb)
 {
 	this->bufferFullCallback = cb;
 }
@@ -321,14 +317,12 @@ void SSPClientIso::setOnMetaCallback(const imf::OnMetaCallback &cb)
 	this->metaCallback = cb;
 }
 
-void SSPClientIso::setOnDisconnectedCallback(
-	const imf::OnDisconnectedCallback &cb)
+void SSPClientIso::setOnDisconnectedCallback(const imf::OnDisconnectedCallback &cb)
 {
 	this->disconnectedCallback = cb;
 }
 
-void SSPClientIso::setOnConnectionConnectedCallback(
-	const imf::OnConnectionConnectedCallback &cb)
+void SSPClientIso::setOnConnectionConnectedCallback(const imf::OnConnectionConnectedCallback &cb)
 {
 	this->connectedCallback = cb;
 }

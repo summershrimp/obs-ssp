@@ -2,13 +2,16 @@
 
 include_guard(GLOBAL)
 
+set(CMAKE_XCODE_GENERATE_SCHEME TRUE)
+
 # Use a compiler wrapper to enable ccache in Xcode projects
 if(ENABLE_CCACHE AND CCACHE_PROGRAM)
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/resources/ccache-launcher-c.in" ccache-launcher-c)
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/resources/ccache-launcher-cxx.in" ccache-launcher-cxx)
 
-  execute_process(COMMAND chmod a+rx "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-c"
-                          "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-cxx")
+  execute_process(
+    COMMAND chmod a+rx "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-c" "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-cxx"
+  )
   set(CMAKE_XCODE_ATTRIBUTE_CC "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-c")
   set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CURRENT_BINARY_DIR}/ccache-launcher-cxx")
   set(CMAKE_XCODE_ATTRIBUTE_LD "${CMAKE_C_COMPILER}")
@@ -51,9 +54,9 @@ set(CMAKE_XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS[variant=RelWithDebInfo] "--times
 set(CMAKE_XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS[variant=MinSizeRel] "--timestamp")
 
 # Enable codesigning with hardened runtime option when not in Debug configuration (required for Notarization)
-set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=Release] NO)
-set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=RelWithDebInfo] NO)
-set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=MinSizeRel] NO)
+set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=Release] YES)
+set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=RelWithDebInfo] YES)
+set(CMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME[variant=MinSizeRel] YES)
 
 # Disable injection of Xcode's base entitlements used for debugging when not in Debug configuration (required for
 # Notarization)
@@ -80,9 +83,6 @@ set(CMAKE_XCODE_ATTRIBUTE_GCC_INLINES_ARE_PRIVATE_EXTERN YES)
 
 # Strip unused code
 set(CMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING YES)
-
-# Display mangled names in Debug configuration
-set(CMAKE_XCODE_ATTRIBUTE_LINKER_DISPLAYS_MANGLED_NAMES[variant=Debug] YES)
 
 # Build active architecture only in Debug configuration
 set(CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH[variant=Debug] YES)
@@ -144,6 +144,7 @@ set(CMAKE_XCODE_ATTRIBUTE_CLANG_WARN__DUPLICATE_METHOD_MATCH YES)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_NO_COMMON_BLOCKS YES)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_64_TO_32_BIT_CONVERSION YES)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS NO)
+set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_ABOUT_MISSING_NEWLINE YES)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_ABOUT_RETURN_TYPE YES_ERROR)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_CHECK_SWITCH_STATEMENTS YES)
 set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_FOUR_CHARACTER_CONSTANTS YES)
