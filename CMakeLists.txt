@@ -31,6 +31,16 @@ endif()
 
 if(ENABLE_QT)
   find_package(Qt6 REQUIRED COMPONENTS Widgets Core Network)
+
+  # Qt's macOS package still links the legacy AGL framework, which was removed from the macOS 26 SDK.
+  if(OS_MACOS AND TARGET WrapOpenGL::WrapOpenGL)
+    get_target_property(_wrap_opengl_libraries WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
+    if(_wrap_opengl_libraries)
+      list(FILTER _wrap_opengl_libraries EXCLUDE REGEX "(^|/)AGL\\.framework$|^-framework AGL$")
+      set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_LIBRARIES "${_wrap_opengl_libraries}")
+    endif()
+  endif()
+
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Network)
   target_compile_options(
     ${CMAKE_PROJECT_NAME}
@@ -38,7 +48,7 @@ if(ENABLE_QT)
   )
   set_target_properties(
     ${CMAKE_PROJECT_NAME}
-    PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON
+    PROPERTIES AUTOMOC ON AUTOMOC_COMPILER_PREDEFINES OFF AUTOUIC ON AUTORCC ON
   )
 endif()
 
@@ -99,6 +109,7 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_HEVC)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE FFmpeg::avcodec FFmpeg::avutil mdns)
 
 add_subdirectory(ssp_connector)
+add_dependencies(${CMAKE_PROJECT_NAME} ssp-connector)
 
 if(OS_MACOS)
   install(TARGETS ssp-connector DESTINATION "./${CMAKE_PROJECT_NAME}.plugin/Contents/MacOS")
