@@ -146,13 +146,8 @@ static bool check_obs_version_compatibility()
 	ssp_blog(LOG_INFO, "OBS Studio version: %d.%d.%d", obs_major, obs_minor, obs_patch);
 
 	// Check if the OBS version is greater than or equal to the minimum required version
-	if (obs_major < MIN_OBS_VERSION_MAJOR)
-		return false;
-
-	if (obs_major == MIN_OBS_VERSION_MAJOR && obs_minor < MIN_OBS_VERSION_MINOR)
-		return false;
-
-	return true;
+	return obs_version >=
+	       MAKE_SEMANTIC_VERSION(MIN_OBS_VERSION_MAJOR, MIN_OBS_VERSION_MINOR, MIN_OBS_VERSION_PATCH);
 }
 
 void obs_module_unload()
