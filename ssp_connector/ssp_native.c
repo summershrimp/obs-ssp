@@ -72,18 +72,12 @@ static const char SSP_USERNAME[] = "zcam-live-user";
 static const char SSP_PASSWORD[] = "zcam-live-password";
 
 /* Pre-computed: SHA1(SSP_PASSWORD) */
-static const uint8_t PASSWORD_HASH[20] = {
-	0x41, 0x67, 0x7f, 0x4a, 0x21, 0x55, 0xc6, 0x05,
-	0x61, 0xed, 0xe4, 0xa1, 0x68, 0x42, 0xd0, 0x1a,
-	0xd1, 0x0e, 0x73, 0xf5
-};
+static const uint8_t PASSWORD_HASH[20] = {0x41, 0x67, 0x7f, 0x4a, 0x21, 0x55, 0xc6, 0x05, 0x61, 0xed,
+					  0xe4, 0xa1, 0x68, 0x42, 0xd0, 0x1a, 0xd1, 0x0e, 0x73, 0xf5};
 
 /* Pre-computed: SHA1(SHA1(SSP_PASSWORD)) */
-static const uint8_t PASSWORD_HASH_HASH[20] = {
-	0x0d, 0xc5, 0x27, 0x59, 0x89, 0x82, 0xf9, 0x5b,
-	0x58, 0x1e, 0x61, 0x64, 0xd3, 0xe3, 0x7b, 0x65,
-	0x69, 0x52, 0x1e, 0xef
-};
+static const uint8_t PASSWORD_HASH_HASH[20] = {0x0d, 0xc5, 0x27, 0x59, 0x89, 0x82, 0xf9, 0x5b, 0x58, 0x1e,
+					       0x61, 0x64, 0xd3, 0xe3, 0x7b, 0x65, 0x69, 0x52, 0x1e, 0xef};
 
 /* Heartbeat interval in milliseconds */
 #define HEARTBEAT_INTERVAL_MS  3000
@@ -114,8 +108,7 @@ static void signal_handler(int sig)
 
 static inline uint32_t read_be32(const uint8_t *p)
 {
-	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-	       ((uint32_t)p[2] << 8)  | (uint32_t)p[3];
+	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
 }
 
 static inline uint64_t read_be64(const uint8_t *p)
@@ -127,7 +120,7 @@ static inline void write_be32(uint8_t *p, uint32_t v)
 {
 	p[0] = (v >> 24) & 0xFF;
 	p[1] = (v >> 16) & 0xFF;
-	p[2] = (v >> 8)  & 0xFF;
+	p[2] = (v >> 8) & 0xFF;
 	p[3] = v & 0xFF;
 }
 
@@ -147,8 +140,12 @@ static void swap_endian_4(uint8_t *buf, size_t len)
 {
 	for (size_t i = 0; i + 3 < len; i += 4) {
 		uint8_t t;
-		t = buf[i]; buf[i] = buf[i+3]; buf[i+3] = t;
-		t = buf[i+1]; buf[i+1] = buf[i+2]; buf[i+2] = t;
+		t = buf[i];
+		buf[i] = buf[i + 3];
+		buf[i + 3] = t;
+		t = buf[i + 1];
+		buf[i + 1] = buf[i + 2];
+		buf[i + 2] = t;
 	}
 }
 
@@ -254,8 +251,7 @@ static int ssp_send_packet(int sock, const void *data, uint32_t len)
  *   3. Client sends HANDSHAKE packet with username + token
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void compute_auth_token(const uint8_t *challenge, size_t challenge_len,
-                               uint8_t *token_out)
+static void compute_auth_token(const uint8_t *challenge, size_t challenge_len, uint8_t *token_out)
 {
 	/* SHA1(challenge + PASSWORD_HASH_HASH) */
 	uint8_t digest[20];
@@ -360,35 +356,31 @@ static int send_metadata_msg(const uint8_t *pkt, uint32_t pkt_len)
 
 	/* Video meta */
 	md.vmeta.timescale = f[0];
-	md.vmeta.unit      = f[1];
-	md.vmeta.width     = f[2];
-	md.vmeta.height    = f[3];
-	md.vmeta.gop       = f[4];
+	md.vmeta.unit = f[1];
+	md.vmeta.width = f[2];
+	md.vmeta.height = f[3];
+	md.vmeta.gop = f[4];
 	/* f[5] reserved */
-	md.vmeta.encoder   = f[13];
+	md.vmeta.encoder = f[13];
 
 	/* Audio meta */
 	md.ameta.sample_rate = f[6];
-	md.ameta.unit        = f[7];
-	md.ameta.timescale   = f[8];
+	md.ameta.unit = f[7];
+	md.ameta.timescale = f[8];
 	md.ameta.sample_size = f[9];
-	md.ameta.channel     = f[10];
-	md.ameta.bitrate     = f[11];
-	md.ameta.encoder     = f[14];
+	md.ameta.channel = f[10];
+	md.ameta.bitrate = f[11];
+	md.ameta.encoder = f[14];
 
 	/* Base meta */
 	md.meta.pts_is_wall_clock = (uint16_t)f[12];
-	md.meta.timecode          = f[15];
-	md.meta.tc_drop_frame     = (uint16_t)f[16];
+	md.meta.timecode = f[15];
+	md.meta.tc_drop_frame = (uint16_t)f[16];
 
 	log_conn("metadata: video=%ux%u ts=%u/%u gop=%u enc=%u, "
-	         "audio=%uhz ch=%u enc=%u br=%u, wall_clock=%u",
-	         md.vmeta.width, md.vmeta.height,
-	         md.vmeta.timescale, md.vmeta.unit,
-	         md.vmeta.gop, md.vmeta.encoder,
-	         md.ameta.sample_rate, md.ameta.channel,
-	         md.ameta.encoder, md.ameta.bitrate,
-	         md.meta.pts_is_wall_clock);
+		 "audio=%uhz ch=%u enc=%u br=%u, wall_clock=%u",
+		 md.vmeta.width, md.vmeta.height, md.vmeta.timescale, md.vmeta.unit, md.vmeta.gop, md.vmeta.encoder,
+		 md.ameta.sample_rate, md.ameta.channel, md.ameta.encoder, md.ameta.bitrate, md.meta.pts_is_wall_clock);
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct Metadata);
 	struct Message *msg = (struct Message *)malloc(msg_len);
@@ -420,8 +412,8 @@ static int send_video_msg(const uint8_t *pkt, uint32_t pkt_len)
 		return -1;
 	}
 
-	uint64_t pts    = read_be64(pkt + 1);
-	uint32_t type   = read_be32(pkt + 9);
+	uint64_t pts = read_be64(pkt + 1);
+	uint32_t type = read_be32(pkt + 9);
 	uint32_t frm_no = read_be32(pkt + 13);
 
 	size_t data_off = 17;
@@ -429,7 +421,8 @@ static int send_video_msg(const uint8_t *pkt, uint32_t pkt_len)
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct VideoData) + data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
-	if (!msg) return -1;
+	if (!msg)
+		return -1;
 
 	msg->type = VideoDataMsg;
 	msg->length = sizeof(struct VideoData) + data_len;
@@ -476,7 +469,8 @@ static int send_audio_msg(const uint8_t *pkt, uint32_t pkt_len)
 
 	size_t msg_len = sizeof(struct Message) + sizeof(struct AudioData) + data_len;
 	struct Message *msg = (struct Message *)malloc(msg_len);
-	if (!msg) return -1;
+	if (!msg)
+		return -1;
 
 	msg->type = AudioDataMsg;
 	msg->length = sizeof(struct AudioData) + data_len;
@@ -670,7 +664,7 @@ static int ssp_start_stream(int sock, uint32_t stream_style)
 static int ssp_send_heartbeat(int sock)
 {
 	/* Heartbeat is an empty packet or minimal packet */
-	uint8_t hb[1] = { SSP_PKT_HEARTBEAT };
+	uint8_t hb[1] = {SSP_PKT_HEARTBEAT};
 	return ssp_send_packet(sock, hb, sizeof(hb));
 }
 
@@ -702,8 +696,8 @@ static int ssp_stream_loop(int sock)
 		/* Send heartbeat if interval elapsed */
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
-		long elapsed_ms = (now.tv_sec - last_heartbeat.tv_sec) * 1000 +
-		                  (now.tv_nsec - last_heartbeat.tv_nsec) / 1000000;
+		long elapsed_ms =
+			(now.tv_sec - last_heartbeat.tv_sec) * 1000 + (now.tv_nsec - last_heartbeat.tv_nsec) / 1000000;
 		if (elapsed_ms >= HEARTBEAT_INTERVAL_MS) {
 			ssp_send_heartbeat(sock);
 			last_heartbeat = now;
@@ -795,16 +789,15 @@ static int process_args(int argc, char **argv)
 
 static void print_usage(void)
 {
-	fprintf(stderr,
-	        "Usage: ssp-connector --host HOST --port PORT [--stream 0|1|2] [--uuid UUID]\n"
-	        "\n"
-	        "Native SSP (Simple Stream Protocol) client for Z CAM cameras.\n"
-	        "Outputs video/audio frames to stdout for the obs-ssp plugin.\n"
-	        "\n"
-	        "  --host, -h    Camera IP address\n"
-	        "  --port, -p    Camera SSP port (default: 9999)\n"
-	        "  --stream, -s  Stream style: 0=default, 1=main, 2=secondary\n"
-	        "  --uuid, -u    UUID (accepted for compatibility, unused)\n");
+	fprintf(stderr, "Usage: ssp-connector --host HOST --port PORT [--stream 0|1|2] [--uuid UUID]\n"
+			"\n"
+			"Native SSP (Simple Stream Protocol) client for Z CAM cameras.\n"
+			"Outputs video/audio frames to stdout for the obs-ssp plugin.\n"
+			"\n"
+			"  --host, -h    Camera IP address\n"
+			"  --port, -p    Camera SSP port (default: 9999)\n"
+			"  --stream, -s  Stream style: 0=default, 1=main, 2=secondary\n"
+			"  --uuid, -u    UUID (accepted for compatibility, unused)\n");
 }
 
 int main(int argc, char **argv)
