@@ -177,8 +177,6 @@ jobs:
           key: ${{ runner.os }}-ccache-${{ needs.check-event.outputs.config }}
 
   ubuntu-build:
-    # libssp supplies binaries for Windows and macOS only.
-    if: ${{ false }}
     name: Build for Ubuntu 🐧
     strategy:
       matrix:

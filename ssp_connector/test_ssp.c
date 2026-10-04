@@ -81,8 +81,7 @@ static inline uint16_t read_be16(const uint8_t *p)
 
 static inline uint32_t read_be32(const uint8_t *p)
 {
-	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-	       ((uint32_t)p[2] << 8)  | (uint32_t)p[3];
+	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
 }
 
 static inline uint64_t read_be64(const uint8_t *p)
@@ -100,7 +99,7 @@ static inline void write_be32(uint8_t *p, uint32_t v)
 {
 	p[0] = (v >> 24) & 0xFF;
 	p[1] = (v >> 16) & 0xFF;
-	p[2] = (v >> 8)  & 0xFF;
+	p[2] = (v >> 8) & 0xFF;
 	p[3] = v & 0xFF;
 }
 
@@ -108,8 +107,12 @@ static void swap_endian_4(uint8_t *buf, size_t len)
 {
 	for (size_t i = 0; i + 3 < len; i += 4) {
 		uint8_t t;
-		t = buf[i]; buf[i] = buf[i+3]; buf[i+3] = t;
-		t = buf[i+1]; buf[i+1] = buf[i+2]; buf[i+2] = t;
+		t = buf[i];
+		buf[i] = buf[i + 3];
+		buf[i + 3] = t;
+		t = buf[i + 1];
+		buf[i + 1] = buf[i + 2];
+		buf[i + 2] = t;
 	}
 }
 
@@ -222,7 +225,7 @@ static void build_metadata_packet(uint8_t *pkt, size_t *pkt_len)
 	 */
 	memset(pkt, 0, 128);
 
-	pkt[0] = 0x6E; /* SSP_PKT_METADATA */
+	pkt[0] = 0x6E;                   /* SSP_PKT_METADATA */
 	write_be32(pkt + 1, 0x00010000); /* version */
 	write_be32(pkt + 5, 17);         /* field count */
 
@@ -287,12 +290,12 @@ TEST(metadata_video_fields)
 	build_metadata_packet(pkt, &pkt_len);
 
 	/* Read fields at offset 9 */
-	ASSERT_EQ(read_be32(pkt + 9 + 0*4), 30000u);  /* timescale */
-	ASSERT_EQ(read_be32(pkt + 9 + 1*4), 1001u);   /* unit */
-	ASSERT_EQ(read_be32(pkt + 9 + 2*4), 1920u);   /* width */
-	ASSERT_EQ(read_be32(pkt + 9 + 3*4), 1080u);   /* height */
-	ASSERT_EQ(read_be32(pkt + 9 + 4*4), 30u);     /* gop */
-	ASSERT_EQ(read_be32(pkt + 9 + 13*4), 96u);    /* encoder = H264 */
+	ASSERT_EQ(read_be32(pkt + 9 + 0 * 4), 30000u); /* timescale */
+	ASSERT_EQ(read_be32(pkt + 9 + 1 * 4), 1001u);  /* unit */
+	ASSERT_EQ(read_be32(pkt + 9 + 2 * 4), 1920u);  /* width */
+	ASSERT_EQ(read_be32(pkt + 9 + 3 * 4), 1080u);  /* height */
+	ASSERT_EQ(read_be32(pkt + 9 + 4 * 4), 30u);    /* gop */
+	ASSERT_EQ(read_be32(pkt + 9 + 13 * 4), 96u);   /* encoder = H264 */
 }
 
 TEST(metadata_audio_fields)
@@ -301,13 +304,13 @@ TEST(metadata_audio_fields)
 	size_t pkt_len;
 	build_metadata_packet(pkt, &pkt_len);
 
-	ASSERT_EQ(read_be32(pkt + 9 + 6*4), 48000u);  /* sample_rate */
-	ASSERT_EQ(read_be32(pkt + 9 + 7*4), 1024u);   /* unit */
-	ASSERT_EQ(read_be32(pkt + 9 + 8*4), 48000u);  /* timescale */
-	ASSERT_EQ(read_be32(pkt + 9 + 9*4), 2048u);   /* sample_size */
-	ASSERT_EQ(read_be32(pkt + 9 + 10*4), 2u);     /* channel */
-	ASSERT_EQ(read_be32(pkt + 9 + 11*4), 128000u); /* bitrate */
-	ASSERT_EQ(read_be32(pkt + 9 + 14*4), 37u);    /* encoder = AAC */
+	ASSERT_EQ(read_be32(pkt + 9 + 6 * 4), 48000u);   /* sample_rate */
+	ASSERT_EQ(read_be32(pkt + 9 + 7 * 4), 1024u);    /* unit */
+	ASSERT_EQ(read_be32(pkt + 9 + 8 * 4), 48000u);   /* timescale */
+	ASSERT_EQ(read_be32(pkt + 9 + 9 * 4), 2048u);    /* sample_size */
+	ASSERT_EQ(read_be32(pkt + 9 + 10 * 4), 2u);      /* channel */
+	ASSERT_EQ(read_be32(pkt + 9 + 11 * 4), 128000u); /* bitrate */
+	ASSERT_EQ(read_be32(pkt + 9 + 14 * 4), 37u);     /* encoder = AAC */
 }
 
 TEST(metadata_base_fields)
@@ -316,18 +319,16 @@ TEST(metadata_base_fields)
 	size_t pkt_len;
 	build_metadata_packet(pkt, &pkt_len);
 
-	ASSERT_EQ(read_be32(pkt + 9 + 12*4), 1u);     /* pts_is_wall_clock */
-	ASSERT_EQ(read_be32(pkt + 9 + 15*4), 0u);     /* timecode */
-	ASSERT_EQ(read_be32(pkt + 9 + 16*4), 0u);     /* tc_drop_frame */
+	ASSERT_EQ(read_be32(pkt + 9 + 12 * 4), 1u); /* pts_is_wall_clock */
+	ASSERT_EQ(read_be32(pkt + 9 + 15 * 4), 0u); /* timecode */
+	ASSERT_EQ(read_be32(pkt + 9 + 16 * 4), 0u); /* tc_drop_frame */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Video Packet Parsing Tests
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void build_video_packet(uint8_t *pkt, size_t *pkt_len,
-                               uint64_t pts, uint32_t frame_type,
-                               uint32_t frm_no)
+static void build_video_packet(uint8_t *pkt, size_t *pkt_len, uint64_t pts, uint32_t frame_type, uint32_t frm_no)
 {
 	/*
 	 * [0]      type = 0x6F
@@ -346,7 +347,10 @@ static void build_video_packet(uint8_t *pkt, size_t *pkt_len,
 	write_be32(pkt + 13, frm_no);
 
 	/* Fake NAL unit: start code + IDR slice header */
-	pkt[17] = 0x00; pkt[18] = 0x00; pkt[19] = 0x00; pkt[20] = 0x01;
+	pkt[17] = 0x00;
+	pkt[18] = 0x00;
+	pkt[19] = 0x00;
+	pkt[20] = 0x01;
 	pkt[21] = 0x65; /* IDR slice */
 
 	*pkt_len = 22;
@@ -421,7 +425,7 @@ static void build_audio_packet(uint8_t *pkt, size_t *pkt_len, uint64_t pts)
 	write_be32(pkt + 5, (uint32_t)(pts & 0xFFFFFFFF));
 
 	/* Fake ADTS header */
-	pkt[9]  = 0xFF;
+	pkt[9] = 0xFF;
 	pkt[10] = 0xF1;
 	pkt[11] = 0x00;
 	pkt[12] = 0x00;
