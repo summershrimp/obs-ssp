@@ -898,7 +898,7 @@ static bool settings_changed(obs_data_t *new_settings, ssp_source *s)
 	}
 
 	// Check other critical settings that require restart
-	bool new_hwaccel = obs_data_get_bool(new_settings, PROP_HW_ACCEL);
+	int new_hwaccel = obs_data_get_bool(new_settings, PROP_HW_ACCEL);
 	if (s->hwaccel != new_hwaccel) {
 		ssp_blog(LOG_INFO, "HW acceleration setting changed from %d to %d", s->hwaccel, new_hwaccel);
 		return true;
@@ -916,7 +916,7 @@ static bool settings_changed(obs_data_t *new_settings, ssp_source *s)
 		return true;
 	}
 
-	bool new_wait_i = obs_data_get_bool(new_settings, PROP_EXP_WAIT_I);
+	int new_wait_i = obs_data_get_bool(new_settings, PROP_EXP_WAIT_I);
 	if (s->wait_i_frame != new_wait_i) {
 		ssp_blog(LOG_INFO, "Wait I-frame setting changed from %d to %d", s->wait_i_frame, new_wait_i);
 		return true;
