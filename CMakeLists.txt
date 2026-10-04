@@ -8,7 +8,7 @@ if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
   set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 endif()
 
-option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
+option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
 option(ENABLE_QT "Use Qt functionality" ON)
 
 if(NOT ENABLE_QT)
@@ -65,6 +65,9 @@ set(
   src/ssp-controller.cpp
   src/VFrameQueue.cpp
   src/ssp-client-iso.cpp
+  src/ssp-dock.cpp
+  src/ssp-toolbar.cpp
+  src/camera-status-manager.cpp
   src/util/pipe.c
 )
 
@@ -81,6 +84,9 @@ set(
   src/ssp-controller.h
   src/VFrameQueue.h
   src/ssp-client-iso.h
+  src/ssp-dock.h
+  src/ssp-toolbar.h
+  src/camera-status-manager.h
   src/util/pipe.h
 )
 
@@ -102,7 +108,11 @@ add_subdirectory(thirdpty)
 
 target_include_directories(
   ${CMAKE_PROJECT_NAME}
-  PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/lib/ssp/include ${CMAKE_SOURCE_DIR}/ssp_connector
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/lib/ssp/include
+    ${CMAKE_SOURCE_DIR}/lib/obs-browser/include
+    ${CMAKE_SOURCE_DIR}/ssp_connector
 )
 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_HEVC)

@@ -43,6 +43,7 @@ along with this program; If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-ssp.h"
 #include "ssp-mdns.h"
+#include "camera-status-manager.h"
 
 #define DEFAULT_TTL 60
 
@@ -151,6 +152,10 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 		memcpy(&(current_mdns_record.a_record), &addr, sizeof(current_mdns_record.a_record));
 		current_mdns_record.has_a = true;
 		current_mdns_record.last_available = os_gettime_ns() / 1000000 + ttl * 1000;
+		mdns_string_t addr_str = ipv4_address_to_string(addrbuffer, sizeof(addrbuffer),
+								&current_mdns_record.a_record,
+								sizeof(current_mdns_record.a_record));
+		CameraStatusManager::instance()->getOrCreate(std::string(addr_str.str, addr_str.length));
 		ssp_records_lock.lock();
 		ssp_records[current_mdns_record.ptr_record] = current_mdns_record;
 		ssp_records_lock.unlock();
@@ -160,6 +165,10 @@ static int query_callback(int sock, const struct sockaddr *from, size_t addrlen,
 		memcpy(&(current_mdns_record.aaaa_record), &addr, sizeof(current_mdns_record.aaaa_record));
 		current_mdns_record.has_aaaa = true;
 		current_mdns_record.last_available = os_gettime_ns() / 1000000 + ttl * 1000;
+		mdns_string_t addr_str = ipv6_address_to_string(addrbuffer, sizeof(addrbuffer),
+								&current_mdns_record.aaaa_record,
+								sizeof(current_mdns_record.aaaa_record));
+		CameraStatusManager::instance()->getOrCreate(std::string(addr_str.str, addr_str.length));
 		ssp_records_lock.lock();
 		ssp_records[current_mdns_record.ptr_record] = current_mdns_record;
 		ssp_records_lock.unlock();
