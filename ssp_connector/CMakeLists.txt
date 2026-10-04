@@ -3,7 +3,7 @@ project(ssp-connector)
 option(USE_NATIVE_SSP "Use native SSP implementation instead of closed-source libssp" OFF)
 option(SSP_BUILD_TESTS "Build SSP protocol unit tests" OFF)
 
-if(USE_NATIVE_SSP OR (OS_LINUX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"))
+if(USE_NATIVE_SSP OR OS_LINUX)
   # ── Native SSP connector (no libssp dependency) ──
   message(STATUS "Building native SSP connector (no libssp dependency)")
 
