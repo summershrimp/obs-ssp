@@ -69,35 +69,26 @@ public:
 	explicit CameraController(QObject *parent = 0);
 	~CameraController();
 
-	void getCameraConfig(const QString &key, int timeout,
-			     OnRequestCallback callback);
+	void getCameraConfig(const QString &key, int timeout, OnRequestCallback callback);
 	void getCameraConfig(const QString &key, OnRequestCallback callback);
-	void setCameraConfig(const QString &key, const QString &value,
-			     OnRequestCallback callback);
+	void setCameraConfig(const QString &key, const QString &value, OnRequestCallback callback);
 	void getInfo(OnRequestCallback callback);
 
-	void requestForCode(const QString &shortPath, int timeout,
-			    OnRequestCallback callback);
-	void requestForCode(const QString &shortPath,
-			    OnRequestCallback callback);
+	void requestForCode(const QString &shortPath, int timeout, OnRequestCallback callback);
+	void requestForCode(const QString &shortPath, OnRequestCallback callback);
 
 	void setSendStream(const QString &value, OnRequestCallback callback);
-	void setStreamBitrate(const QString &index, const QString &bitrate,
-			      OnRequestCallback callback);
-	void setStreamBitrateAndGop(const QString &index,
-				    const QString &bitrate, const QString &gop,
+	void setStreamAttr(const QString &index, const QString &width, const QString &height, const QString &bitrate,
+			   const QString &gop, const QString &fps, const QString &codec, OnRequestCallback callback);
+	void setStreamBitrate(const QString &index, const QString &bitrate, OnRequestCallback callback);
+	void setStreamBitrateAndGop(const QString &index, const QString &bitrate, const QString &gop,
 				    OnRequestCallback callback);
-	void setStreamResolution(const QString &index, const QString &width,
-				 const QString &height,
+	void setStreamResolution(const QString &index, const QString &width, const QString &height,
 				 OnRequestCallback callback);
-	void setStreamFPS(const QString &index, const QString &fps,
-			  OnRequestCallback callback);
-	void setStreamCodec(const QString &index, const QString &codec,
-			    OnRequestCallback callback);
-	void setStreamGop(const QString &index, const QString &gop,
-			  OnRequestCallback callback);
-	void setStreamBitwidth(const QString &index, const QString &bitwidth,
-			       OnRequestCallback callback);
+	void setStreamFPS(const QString &index, const QString &fps, OnRequestCallback callback);
+	void setStreamCodec(const QString &index, const QString &codec, OnRequestCallback callback);
+	void setStreamGop(const QString &index, const QString &gop, OnRequestCallback callback);
+	void setStreamBitwidth(const QString &index, const QString &bitwidth, OnRequestCallback callback);
 	void getStreamInfo(const QString &index, OnRequestCallback callback);
 	void setIp(const QString &ip);
 
@@ -117,10 +108,8 @@ private:
 	void nextRequest();
 	void nextRequest(HttpRequest *req);
 	void commonRequest(struct HttpRequest *req);
-	void parseResponse(const QByteArray &byteData, struct HttpResponse *rsp,
-			   RequestType reqType);
-	QString buildRequestPath(const QString &shortPath, const QString &ip,
-				 bool useShortPath);
+	void parseResponse(const QByteArray &byteData, struct HttpResponse *rsp, RequestType reqType);
+	QString buildRequestPath(const QString &shortPath, const QString &ip, bool useShortPath);
 
 	QString ip_;
 	bool requesting_;

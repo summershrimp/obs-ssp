@@ -37,6 +37,7 @@
 #include <QTimer>
 #include <QBuffer>
 #include <QTcpSocket>
+#include <QApplication>
 
 #include <stdio.h>
 #include "cameracontroller.h"
@@ -53,8 +54,9 @@ CameraController::CameraController(QObject *parent)
 
 CameraController::~CameraController()
 {
+	cancelAllReqs();
 	disconnect(this);
-	while (!httpRequestQueue_->isEmpty()) {
+	while (httpRequestQueue_ != nullptr && !httpRequestQueue_->isEmpty()) {
 		delete httpRequestQueue_->dequeue();
 	}
 	delete httpRequestQueue_;
@@ -66,8 +68,10 @@ CameraController::~CameraController()
 
 void CameraController::setIp(const QString &ip)
 {
-	cancelAllReqs();
-	ip_ = ip;
+	if (ip != ip_) {
+		cancelAllReqs();
+		ip_ = ip;
+	}
 }
 
 void CameraController::clearConnectionStatus()
@@ -186,7 +190,30 @@ void CameraController::setStreamBitrate(const QString &index, const QString &bit
 	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&bitrate=").append(bitrate);
 	requestForCode(shortPath, callback);
 }
-
+void CameraController::setStreamAttr(const QString &index, const QString &width, const QString &height,
+				     const QString &bitrate, const QString &gop, const QString &fps,
+				     const QString &codec, OnRequestCallback callback)
+{
+	QString shortPath;
+	shortPath.append(URL_CTRL_STREAM_SETTING)
+		.append("")
+		.append("?index=")
+		.append(index)
+		.append("&bitrate=")
+		.append(bitrate)
+		.append("&width=")
+		.append(width)
+		.append("&height=")
+		.append(height)
+		.append("&fps=")
+		.append(fps)
+		.append("&gop_n=")
+		.append(gop)
+		.append("&encoderType=")
+		.append(codec)
+		.append("&bitwidth=8bit");
+	requestForCode(shortPath, callback);
+}
 void CameraController::setStreamBitrateAndGop(const QString &index, const QString &bitrate, const QString &gop,
 					      OnRequestCallback callback)
 {
@@ -223,12 +250,15 @@ void CameraController::setStreamResolution(const QString &index, const QString &
 		.append(height);
 	requestForCode(shortPath, callback);
 }
-void CameraController::setStreamCodec(const QString &index, const QString &, OnRequestCallback callback)
+void CameraController::setStreamCodec(const QString &index, const QString &codec, OnRequestCallback callback)
 {
 	QString shortPath;
-	// /ctrl/stream_setting?index=stream1&width=1920&height=1080
-	//shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&encoderType=").append(codec).append("bitwidth=8bit");
-	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index.toLower()).append("&bitwidth=8bit");
+	shortPath.append(URL_CTRL_STREAM_SETTING)
+		.append("?index=")
+		.append(index.toLower())
+		.append("&encoderType=")
+		.append(codec)
+		.append("&bitwidth=8bit");
 	requestForCode(shortPath, callback);
 }
 void CameraController::setStreamGop(const QString &index, const QString &gop, OnRequestCallback callback)
@@ -249,7 +279,7 @@ void CameraController::setStreamFPS(const QString &index, const QString &fps, On
 void CameraController::getStreamInfo(const QString &index, OnRequestCallback callback)
 {
 	QString shortPath;
-	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index).append("&action=query");
+	shortPath.append(URL_CTRL_STREAM_SETTING).append("?index=").append(index.toLower()).append("&action=query");
 	struct HttpRequest *req = new HttpRequest();
 	req->useShortPath = true;
 	req->key = URL_CTRL_STREAM_SETTING;
@@ -280,9 +310,18 @@ void CameraController::nextRequest(HttpRequest *req)
 	request.setRawHeader("Connection", "Keep-Alive");
 	request.setUrl(url);
 
-	auto reply_ = networkManager_->get(request);
-	QTimer::singleShot(req->timeout, reply_, SLOT(abort()));
-	connect(reply_, &QNetworkReply::finished, [=]() { handleRequestResult(req, reply_); });
+	QMetaObject::invokeMethod(
+		QApplication::instance(),
+		[this, req, request]() {
+			auto reply_ = networkManager_->get(request);
+			QTimer::singleShot(req->timeout, reply_, SLOT(abort()));
+
+			connect(reply_, &QNetworkReply::finished, [=]() { handleRequestResult(req, reply_); });
+
+			connect(reply_, &QNetworkReply::errorOccurred,
+				[](QNetworkReply::NetworkError error) { qDebug() << "request error: " << error; });
+		},
+		Qt::QueuedConnection);
 }
 
 void CameraController::nextRequest()
@@ -367,7 +406,8 @@ void CameraController::parseResponse(const QByteArray &byteData, struct HttpResp
 			CameraConfig::parseForConfig(doc.object(), rsp);
 		} else if (reqType == REQUEST_TYPE_INFO) {
 			rsp->code = 0;
-			rsp->currentValue = doc["model"].toString();
+			//rsp->currentValue = doc["model"].toString();
+			rsp->currentValue = QString(byteData);
 		} else if (reqType == REQUEST_TYPE_FILES) {
 		} else if (reqType == REQUEST_TYPE_MEDIA_INFO) {
 		} else if (reqType == REQUEST_TYPE_NETINFO) {
